@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DeveloperCount } from "@/components/DeveloperCount";
 import { Leaderboard } from "@/components/Leaderboard";
 import { Roaster } from "@/components/Roaster";
 
@@ -50,9 +51,9 @@ export default function Home() {
           毒舌 <span className="text-orange-500">GitHub</span> 评分
         </h1>
         <p className="mt-3 max-w-md text-zinc-400">
-          输入一个 GitHub 账号，得到 0–100 分的价值与信任评分，
-          外加一句扎心又有梗的毒舌点评。AI 机器人、收藏夹开发者、自产自销刷量号，无所遁形。
+          输入一个 GitHub 账号，得到 0–100 分的价值与信任评分，外加一句扎心又有梗的毒舌点评。
         </p>
+        <DeveloperCount />
         <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-xs">
           {[
             ["🏆 夯", "text-amber-300"],

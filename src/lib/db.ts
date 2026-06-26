@@ -127,6 +127,20 @@ export async function getPercentile(
   }
 }
 
+/** Total number of accounts ever evaluated (for the "N developers" counter). */
+export async function getScoreCount(): Promise<number | null> {
+  const db = getClient();
+  if (!db) return null;
+  try {
+    await ensureSchema(db);
+    const res = await db.execute("SELECT COUNT(*) AS n FROM scores");
+    return Number(res.rows[0]?.n ?? 0);
+  } catch (e) {
+    console.error("getScoreCount failed:", e);
+    return null;
+  }
+}
+
 /** Top high-scoring accounts for the public 名人堂 board (excludes hidden). */
 export async function getLeaderboard(
   limit = 100,

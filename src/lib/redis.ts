@@ -184,6 +184,30 @@ export async function setCachedRoast(username: string, value: CachedRoast): Prom
   }
 }
 
+const STATS_KEY = "stats:count";
+const STATS_TTL_SECONDS = 60;
+
+export async function getCachedStats(): Promise<number | null> {
+  const r = getRedis();
+  if (!r) return null;
+  try {
+    const v = await r.get<number>(STATS_KEY);
+    return typeof v === "number" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setCachedStats(total: number): Promise<void> {
+  const r = getRedis();
+  if (!r) return;
+  try {
+    await r.set(STATS_KEY, total, { ex: STATS_TTL_SECONDS });
+  } catch {
+    // best-effort
+  }
+}
+
 const LEADERBOARD_KEY = "leaderboard:top";
 const LEADERBOARD_TTL_SECONDS = 60;
 
