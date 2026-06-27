@@ -51,7 +51,7 @@ export function HomeLeaderboardClient({
             type="button"
             onClick={() => setView("heat")}
             className={`shrink-0 text-lg font-black leading-tight sm:text-xl ${
-              view === "heat" ? "text-zinc-100" : "text-zinc-500 hover:text-red-300"
+              view === "heat" ? "text-zinc-100" : "text-zinc-500 hover:text-zinc-200"
             }`}
             aria-pressed={view === "heat"}
           >
