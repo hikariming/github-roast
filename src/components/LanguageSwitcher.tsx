@@ -1,6 +1,7 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
+import { useSearchParams } from "next/navigation";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
 
@@ -13,6 +14,9 @@ export function LanguageSwitcher() {
   const locale = useLocale();
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const query = searchParams.toString();
+  const href = query ? `${pathname}?${query}` : pathname;
 
   return (
     <div
@@ -25,7 +29,7 @@ export function LanguageSwitcher() {
           key={loc}
           type="button"
           onClick={() => {
-            if (loc !== locale) router.replace(pathname, { locale: loc });
+            if (loc !== locale) router.replace(href, { locale: loc });
           }}
           aria-current={loc === locale}
           className={`rounded-full px-2.5 py-1 transition-colors ${
