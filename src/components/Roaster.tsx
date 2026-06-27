@@ -267,16 +267,6 @@ export function Roaster() {
             <div className={`mt-1 text-2xl font-bold ${style.text}`}>
               {style.emoji} {display.tier}
             </div>
-            <div className="mt-1 text-sm text-zinc-400">{display.tierLabel}</div>
-
-            {display.delta !== 0 && (
-              <div className="mt-2 text-xs text-zinc-500">
-                脚本初评 {scan.scoring.final_score.toFixed(2)} · AI 人工复核{" "}
-                <span className={display.delta > 0 ? "text-emerald-400" : "text-rose-400"}>
-                  {display.delta > 0 ? `+${display.delta}` : display.delta}
-                </span>
-              </div>
-            )}
 
             {percentile &&
               (percentile.beat === null ? (
@@ -307,6 +297,7 @@ export function Roaster() {
 
           {/* Roast report */}
           <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.02] p-5 sm:p-7">
+            <div className="mb-4 text-lg font-bold text-orange-400">🔥 毒舌点评</div>
             {report ? (
               <div
                 className={`report text-[0.95rem] text-zinc-200 ${roasting ? "caret" : ""}`}
@@ -314,8 +305,15 @@ export function Roaster() {
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{report}</ReactMarkdown>
               </div>
             ) : (
-              <div className="text-center text-zinc-500">
-                {roasting ? "毒舌正在酝酿…" : "准备生成点评"}
+              <div className="flex flex-col items-center gap-3 py-4 text-center">
+                <div className="flex gap-1.5">
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-orange-400 [animation-delay:-0.3s]" />
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-orange-400 [animation-delay:-0.15s]" />
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-orange-400" />
+                </div>
+                <div className="text-sm text-zinc-400">
+                  {roasting ? "AI 正在憋一段毒舌点评，马上端上来…" : "准备生成点评"}
+                </div>
               </div>
             )}
           </div>
