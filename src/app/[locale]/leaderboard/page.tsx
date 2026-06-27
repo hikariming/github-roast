@@ -36,29 +36,38 @@ export default async function LeaderboardPage({
   await connection();
   setRequestLocale(locale);
   const t = await getTranslations("leaderboard");
+  const pageTitle = view === "heat" ? t("heatView") : t("heading");
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-5 py-14 sm:py-20">
       <header className="mb-8">
-        <div className="flex flex-col items-start gap-5 xl:flex-row xl:items-start xl:justify-between">
-          <div className="flex min-w-0 max-w-full flex-1 flex-wrap items-center gap-x-4 gap-y-3 sm:gap-x-6">
-            <Link
-              href="/leaderboard"
-              className={`shrink-0 text-3xl font-black leading-tight tracking-tight sm:text-4xl ${
-                view === "score" ? "text-zinc-100" : "text-zinc-500 hover:text-zinc-200"
-              }`}
-            >
-              {t("heading")}
-            </Link>
-            <span className="h-14 w-1 shrink-0 rotate-12 rounded-full bg-[rgb(255,105,0)] sm:h-20" />
-            <Link
-              href="/leaderboard?view=heat"
-              className={`shrink-0 text-xl font-black leading-tight sm:text-2xl ${
-                view === "heat" ? "text-zinc-100" : "text-zinc-500 hover:text-red-300"
-              }`}
-            >
-              {t("heatView")}
-            </Link>
+        <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-4xl font-black leading-tight tracking-tight text-zinc-100 sm:text-5xl">
+              {pageTitle}
+            </h1>
+            <div className="mt-4 inline-flex max-w-full flex-wrap items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] p-1 text-sm font-bold">
+              <Link
+                href="/leaderboard"
+                className={`rounded-full px-3 py-1.5 transition-colors ${
+                  view === "score"
+                    ? "bg-white/10 text-zinc-100"
+                    : "text-zinc-500 hover:text-zinc-200"
+                }`}
+              >
+                {t("scoreView")}
+              </Link>
+              <Link
+                href="/leaderboard?view=heat"
+                className={`rounded-full px-3 py-1.5 transition-colors ${
+                  view === "heat"
+                    ? "bg-white/10 text-zinc-100"
+                    : "text-zinc-500 hover:text-red-300"
+                }`}
+              >
+                {t("heatView")}
+              </Link>
+            </div>
           </div>
           <Link
             href="/"
