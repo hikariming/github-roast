@@ -12,9 +12,7 @@ export default function LeaderboardPage() {
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-5 py-14 sm:py-20">
       <header className="mb-8 text-center">
         <h1 className="text-3xl font-black tracking-tight sm:text-4xl">🏆 名人堂</h1>
-        <p className="mt-2 text-zinc-400">
-          公开数据中的高分账号（≥70 分）。低分账号不会出现在这里。
-        </p>
+        <p className="mt-2 text-zinc-400">评分 60 分以上即可上榜。</p>
         <Link
           href="/"
           className="mt-4 inline-block rounded-full bg-orange-600 px-5 py-2 text-sm font-medium text-white hover:bg-orange-500"

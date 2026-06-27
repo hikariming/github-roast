@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isEcosystemImpactPr } from "../github";
+import { computeFloodSignals, isEcosystemImpactPr } from "../github";
 import { logRatio, score, tierFor } from "../score";
 import type { RawMetrics, RecentPr } from "../types";
 import fixtures from "./score-fixtures.json";
@@ -12,6 +12,133 @@ const pr = (over: Partial<RecentPr>): RecentPr => ({
   changed_files: 3,
   trivial: false,
   ...over,
+});
+
+/** A neutral, established account that trips no red flags — override per test. */
+const NEUTRAL: RawMetrics = {
+  username: "x",
+  profile_url: null,
+  avatar_url: null,
+  name: "X",
+  bio: "dev",
+  company: null,
+  account_age_years: 5,
+  created_at: "2019-01-01T00:00:00Z",
+  followers: 50,
+  following: 30,
+  public_repos: 20,
+  fetched_repo_count: 20,
+  original_repo_count: 10,
+  nonempty_original_repo_count: 5,
+  fork_repo_count: 2,
+  empty_original_repo_count: 0,
+  total_stars: 100,
+  max_stars: 50,
+  merged_pr_count: 30,
+  total_pr_count: 35,
+  issues_created: 10,
+  last_year_contributions: 500,
+  activity_type_count: 3,
+  contribution_years_active: 3,
+  days_since_last_activity: 30,
+  recent_merged_pr_sample: 20,
+  recent_trivial_pr_count: 2,
+  max_impact_repo_stars: 0,
+  impact_pr_count: 0,
+  impact_depth_raw: 0,
+  self_pr_farm_count: 0,
+  self_pr_farm_ratio: 0,
+  star_inflation_suspect: false,
+  closed_unmerged_pr_count: 2,
+  pr_rejection_rate: 0.06,
+  recent_pr_sample: 20,
+  top_repo_pr_target: "a/b",
+  top_repo_pr_share: 0.3,
+  templated_pr_ratio: 0.2,
+  pr_flood_suspect: false,
+};
+
+const hasFlag = (m: RawMetrics, name: string) =>
+  score(m).red_flags.some((f) => f.flag === name);
+
+describe("spam-PR red flags", () => {
+  it("does not fire on a neutral account", () => {
+    expect(score(NEUTRAL).red_flags).toHaveLength(0);
+  });
+
+  it("flags templated_pr_flooding when the flood heuristic is suspect", () => {
+    const m: RawMetrics = {
+      ...NEUTRAL,
+      pr_flood_suspect: true,
+      recent_pr_sample: 18,
+      top_repo_pr_target: "langgenius/dify",
+      top_repo_pr_share: 0.8,
+      templated_pr_ratio: 0.75,
+    };
+    expect(hasFlag(m, "templated_pr_flooding")).toBe(true);
+  });
+
+  it("flags high_pr_rejection when most decided PRs were rejected", () => {
+    const m: RawMetrics = {
+      ...NEUTRAL,
+      merged_pr_count: 5,
+      closed_unmerged_pr_count: 20,
+      pr_rejection_rate: 0.8,
+    };
+    const flag = score(m).red_flags.find((f) => f.flag === "high_pr_rejection");
+    expect(flag).toBeTruthy();
+    expect(flag?.penalty).toBe(10); // >0.7 → 10
+  });
+
+  it("does not flag rejection below the threshold or with too few PRs", () => {
+    expect(hasFlag({ ...NEUTRAL, pr_rejection_rate: 0.4 }, "high_pr_rejection")).toBe(false);
+    expect(
+      hasFlag(
+        { ...NEUTRAL, merged_pr_count: 3, closed_unmerged_pr_count: 4, pr_rejection_rate: 0.57 },
+        "high_pr_rejection",
+      ),
+    ).toBe(false); // decided 7 < 10
+  });
+});
+
+describe("computeFloodSignals", () => {
+  it("flags a cqjjjzr-style one-repo templated burst", () => {
+    const titles = [
+      ...Array.from({ length: 15 }, (_, i) => `refactor(api): migrate ${i} endpoints to BaseModel`),
+      "refactor(api): remove legacy field compatibility",
+      "refactor(api): remove member field compatibility",
+      "chore: rehearse ordered BaseModel migration merge",
+    ];
+    const prs = titles.map((title) => ({ title, repo: "langgenius/dify" }));
+    const s = computeFloodSignals(prs);
+    expect(s.pr_flood_suspect).toBe(true);
+    expect(s.top_repo_pr_target).toBe("langgenius/dify");
+    expect(s.top_repo_pr_share).toBe(1);
+    expect(s.templated_pr_ratio).toBeGreaterThanOrEqual(0.5);
+    expect(s.flood_pr_titles.length).toBeGreaterThan(0);
+  });
+
+  it("does not flag varied PRs across many repos", () => {
+    const prs = [
+      { title: "fix: handle null pointer in parser", repo: "a/one" },
+      { title: "docs: clarify install steps", repo: "b/two" },
+      { title: "feat: add export to csv", repo: "c/three" },
+      { title: "perf: cache compiled regex", repo: "d/four" },
+      { title: "test: cover edge cases", repo: "e/five" },
+      { title: "refactor: split god object", repo: "f/six" },
+      { title: "ci: bump node version", repo: "g/seven" },
+      { title: "fix: race in scheduler", repo: "h/eight" },
+      { title: "feat: dark mode toggle", repo: "i/nine" },
+      { title: "chore: update deps", repo: "j/ten" },
+      { title: "fix: typo in readme", repo: "k/eleven" },
+      { title: "feat: pagination support", repo: "l/twelve" },
+    ];
+    expect(computeFloodSignals(prs).pr_flood_suspect).toBe(false);
+  });
+
+  it("handles an empty list", () => {
+    expect(computeFloodSignals([]).pr_flood_suspect).toBe(false);
+  });
 });
 
 /**

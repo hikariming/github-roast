@@ -79,7 +79,11 @@ export function ByoKeyModal({
         )}
         <p className="mt-2 text-xs text-zinc-400">
           兼容任意 OpenAI 接口（OpenAI / OpenRouter / Groq / DeepSeek / 本地）。
-          Key 只存在你自己的浏览器里，调用时直传，绝不上传到我们的服务器。
+          Key 保存在你自己的浏览器里。调用时会经过我们的服务器中转一次去请求模型，
+          <span className="text-zinc-300">但绝不落库、不写日志、用完即弃</span>。
+        </p>
+        <p className="mt-1.5 text-xs text-amber-400/90">
+          🔒 介意的话，建议用一把<span className="font-semibold">临时 / 额度受限</span>的 Key，用完即可吊销。
         </p>
 
         <div className="mt-3 flex flex-wrap gap-2">

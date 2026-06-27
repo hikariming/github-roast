@@ -144,7 +144,7 @@ export async function getScoreCount(): Promise<number | null> {
 /** Top high-scoring accounts for the public 名人堂 board (excludes hidden). */
 export async function getLeaderboard(
   limit = 100,
-  minScore = 70,
+  minScore = 60,
 ): Promise<LeaderboardEntry[]> {
   const db = getClient();
   if (!db) return [];

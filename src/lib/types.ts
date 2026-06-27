@@ -59,6 +59,14 @@ export interface RawMetrics {
   self_pr_farm_count: number;
   self_pr_farm_ratio: number;
   star_inflation_suspect: boolean;
+  // Spam / low-quality PR signals.
+  closed_unmerged_pr_count: number;
+  pr_rejection_rate: number;
+  recent_pr_sample: number;
+  top_repo_pr_target: string | null;
+  top_repo_pr_share: number;
+  templated_pr_ratio: number;
+  pr_flood_suspect: boolean;
 }
 
 export type SubScoreKey =
@@ -94,6 +102,8 @@ export interface ScanResult {
   metrics: RawMetrics;
   top_repos: TopRepo[];
   recent_prs: RecentPr[];
+  /** Representative titles from the largest templated-PR cluster (for the LLM). */
+  flood_pr_titles: string[];
   scoring: Scoring;
 }
 

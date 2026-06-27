@@ -268,6 +268,29 @@ export function Roaster() {
               {style.emoji} {display.tier}
             </div>
 
+            {/* Roast report */}
+            <div className="mt-4 w-full rounded-xl border border-white/10 bg-white/[0.02] p-4 text-left">
+              <div className="mb-2 text-base font-bold text-orange-400">🔥 毒舌点评</div>
+              {report ? (
+                <div
+                  className={`report text-sm text-zinc-200 ${roasting ? "caret" : ""}`}
+                >
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{report}</ReactMarkdown>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-3 py-3 text-center">
+                  <div className="flex gap-1.5">
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-orange-400 [animation-delay:-0.3s]" />
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-orange-400 [animation-delay:-0.15s]" />
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-orange-400" />
+                  </div>
+                  <div className="text-sm text-zinc-400">
+                    {roasting ? "AI 正在憋一段毒舌点评，马上端上来…" : "准备生成点评"}
+                  </div>
+                </div>
+              )}
+            </div>
+
             {percentile &&
               (percentile.beat === null ? (
                 <div className="mt-3 text-sm text-zinc-300">🥇 你是第一个被审判的，前无古人</div>
@@ -293,29 +316,6 @@ export function Roaster() {
                 {savingImg ? "生成中…" : "📸 保存炫耀图"}
               </button>
             </div>
-          </div>
-
-          {/* Roast report */}
-          <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.02] p-5 sm:p-7">
-            <div className="mb-4 text-lg font-bold text-orange-400">🔥 毒舌点评</div>
-            {report ? (
-              <div
-                className={`report text-[0.95rem] text-zinc-200 ${roasting ? "caret" : ""}`}
-              >
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{report}</ReactMarkdown>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-3 py-4 text-center">
-                <div className="flex gap-1.5">
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-orange-400 [animation-delay:-0.3s]" />
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-orange-400 [animation-delay:-0.15s]" />
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-orange-400" />
-                </div>
-                <div className="text-sm text-zinc-400">
-                  {roasting ? "AI 正在憋一段毒舌点评，马上端上来…" : "准备生成点评"}
-                </div>
-              </div>
-            )}
           </div>
 
           {scan.metrics.days_since_last_activity === null && (

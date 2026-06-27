@@ -172,6 +172,96 @@ async function fetchRecentPrs(username: string, count = 20): Promise<RecentPr[]>
   });
 }
 
+interface AnyPr {
+  title: string;
+  repo: string;
+}
+
+/** Recent PRs across ALL states (for templated-flood detection). */
+async function fetchRecentAllPrs(username: string, count = 30): Promise<AnyPr[]> {
+  const data = await graphql<{
+    user: { pullRequests: { nodes: { title: string | null; repository: { nameWithOwner: string } | null }[] } } | null;
+  }>(
+    `query($login: String!, $count: Int!) {
+      user(login: $login) {
+        pullRequests(first: $count, orderBy: {field: CREATED_AT, direction: DESC}) {
+          nodes { title repository { nameWithOwner } }
+        }
+      }
+    }`,
+    { login: username, count },
+  );
+  const nodes = data?.user?.pullRequests?.nodes ?? [];
+  return nodes
+    .filter((n) => n.title && n.repository)
+    .map((n) => ({ title: n.title as string, repo: n.repository!.nameWithOwner }));
+}
+
+export interface FloodSignals {
+  recent_pr_sample: number;
+  top_repo_pr_target: string | null;
+  top_repo_pr_share: number;
+  templated_pr_ratio: number;
+  pr_flood_suspect: boolean;
+  flood_pr_titles: string[];
+}
+
+/**
+ * Detect "templated PR flooding": many recent PRs aimed at a single repo whose
+ * titles share a long common prefix (e.g. one-day AI batches of
+ * `refactor(api): migrate ___ to BaseModel`). Pure so it can be unit-tested.
+ */
+export function computeFloodSignals(prs: AnyPr[]): FloodSignals {
+  const sample = prs.length;
+  if (sample === 0) {
+    return {
+      recent_pr_sample: 0,
+      top_repo_pr_target: null,
+      top_repo_pr_share: 0,
+      templated_pr_ratio: 0,
+      pr_flood_suspect: false,
+      flood_pr_titles: [],
+    };
+  }
+
+  // Most-targeted repo.
+  const repoCounts = new Map<string, number>();
+  for (const p of prs) repoCounts.set(p.repo, (repoCounts.get(p.repo) ?? 0) + 1);
+  let topRepo: string | null = null;
+  let topRepoCount = 0;
+  for (const [repo, n] of repoCounts) {
+    if (n > topRepoCount) {
+      topRepo = repo;
+      topRepoCount = n;
+    }
+  }
+  const topRepoShare = Math.round((topRepoCount / sample) * 100) / 100;
+
+  // Largest cluster of near-identical titles (first 18 normalized chars).
+  const prefix = (t: string) => t.toLowerCase().replace(/\s+/g, " ").trim().slice(0, 18);
+  const titleClusters = new Map<string, string[]>();
+  for (const p of prs) {
+    const key = prefix(p.title);
+    const arr = titleClusters.get(key) ?? [];
+    arr.push(p.title);
+    titleClusters.set(key, arr);
+  }
+  let biggest: string[] = [];
+  for (const arr of titleClusters.values()) if (arr.length > biggest.length) biggest = arr;
+  const templatedRatio = Math.round((biggest.length / sample) * 100) / 100;
+
+  const suspect = sample >= 10 && topRepoShare >= 0.5 && templatedRatio >= 0.5;
+
+  return {
+    recent_pr_sample: sample,
+    top_repo_pr_target: topRepo,
+    top_repo_pr_share: topRepoShare,
+    templated_pr_ratio: templatedRatio,
+    pr_flood_suspect: suspect,
+    flood_pr_titles: biggest.slice(0, 5),
+  };
+}
+
 /**
  * Whether a merged PR counts toward Ecosystem & Maintainer Impact (dimension 4).
  *
@@ -196,6 +286,7 @@ export async function collect(username: string): Promise<{
   metrics: RawMetrics;
   top_repos: TopRepo[];
   recent_prs: RecentPr[];
+  flood_pr_titles: string[];
 }> {
   const now = new Date();
 
@@ -236,6 +327,7 @@ export async function collect(username: string): Promise<{
     user: {
       mergedPRs: { totalCount: number };
       allPRs: { totalCount: number };
+      closedPRs: { totalCount: number };
       issues: { totalCount: number };
       contributionsCollection: {
         totalCommitContributions: number;
@@ -252,6 +344,7 @@ export async function collect(username: string): Promise<{
       user(login: $login) {
         mergedPRs: pullRequests(states: MERGED) { totalCount }
         allPRs: pullRequests { totalCount }
+        closedPRs: pullRequests(states: CLOSED) { totalCount }
         issues { totalCount }
         contributionsCollection {
           totalCommitContributions
@@ -270,7 +363,11 @@ export async function collect(username: string): Promise<{
   const contributionYears = contrib?.user?.contributionYears?.contributionYears ?? [];
   const mergedPrCount = contrib?.user?.mergedPRs?.totalCount ?? 0;
   const totalPrCount = contrib?.user?.allPRs?.totalCount ?? 0;
+  const closedUnmergedPrCount = contrib?.user?.closedPRs?.totalCount ?? 0;
   const issuesCreated = contrib?.user?.issues?.totalCount ?? 0;
+  const decidedPrCount = mergedPrCount + closedUnmergedPrCount;
+  const prRejectionRate =
+    decidedPrCount > 0 ? Math.round((closedUnmergedPrCount / decidedPrCount) * 100) / 100 : 0;
 
   const created = parseTs(user.created_at);
   const dayMs = 1000 * 60 * 60 * 24;
@@ -322,6 +419,9 @@ export async function collect(username: string): Promise<{
   // Recent merged PRs (titles + diff size + target-repo stars)
   const recentPrs = await fetchRecentPrs(login);
   const trivialPrs = recentPrs.filter((p) => p.trivial).length;
+
+  // Templated-PR flooding signal (recent PRs across all states).
+  const flood = computeFloodSignals(await fetchRecentAllPrs(login));
 
   // Ecosystem & maintainer impact: substantial PRs into popular repos — others'
   // projects (≥200★) or the user's own genuinely popular repos (≥1000★).
@@ -385,7 +485,19 @@ export async function collect(username: string): Promise<{
     self_pr_farm_count: selfPrFarmCount,
     self_pr_farm_ratio: selfPrFarmRatio,
     star_inflation_suspect: starInflationSuspect,
+    closed_unmerged_pr_count: closedUnmergedPrCount,
+    pr_rejection_rate: prRejectionRate,
+    recent_pr_sample: flood.recent_pr_sample,
+    top_repo_pr_target: flood.top_repo_pr_target,
+    top_repo_pr_share: flood.top_repo_pr_share,
+    templated_pr_ratio: flood.templated_pr_ratio,
+    pr_flood_suspect: flood.pr_flood_suspect,
   };
 
-  return { metrics, top_repos: topRepos, recent_prs: recentPrs };
+  return {
+    metrics,
+    top_repos: topRepos,
+    recent_prs: recentPrs,
+    flood_pr_titles: flood.flood_pr_titles,
+  };
 }

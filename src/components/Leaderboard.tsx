@@ -42,7 +42,7 @@ export function Leaderboard({ pageSize }: { pageSize?: number }) {
   if (entries.length === 0) {
     return (
       <p className="text-center text-zinc-500">
-        名人堂还空着 —— 去首页扫出第一个 70 分以上的高手吧。
+        名人堂还空着 —— 去首页扫出第一个 60 分以上的高手吧。
       </p>
     );
   }

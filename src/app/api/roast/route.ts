@@ -65,6 +65,7 @@ function sanitizeScan(scan: ScanResult): ScanResult {
       ...p,
       title: p.title?.slice(0, 200) ?? null,
     })),
+    flood_pr_titles: (scan.flood_pr_titles ?? []).slice(0, 5).map((t) => t.slice(0, 200)),
     scoring: scan.scoring,
   };
 }

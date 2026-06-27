@@ -198,6 +198,30 @@ export function score(m: RawMetrics): Scoring {
         "repos — contribution-count inflation (often AI-agent / self-review loops).",
     );
   }
+  // Templated-PR flooding: many recent PRs blasted at one repo with near-identical
+  // titles — the AI-batch / spam-flood pattern (caught even with high merge rate).
+  if (m.pr_flood_suspect ?? false) {
+    const floodSample = m.recent_pr_sample ?? 0;
+    const repo = m.top_repo_pr_target ?? "one repo";
+    flag(
+      "templated_pr_flooding",
+      10,
+      `近期 ${Math.round((m.top_repo_pr_share ?? 0) * 100)}% 的 PR 集中刷向 ${repo}，` +
+        `${Math.round((m.templated_pr_ratio ?? 0) * 100)}% 标题高度模板化（${floodSample} 个样本）` +
+        ` — 疑似 AI 批量生成 / 刷量洪水。`,
+    );
+  }
+  // High PR rejection: most decided PRs were closed unmerged — low-quality / spam.
+  const decidedPrs = m.merged_pr_count + (m.closed_unmerged_pr_count ?? 0);
+  const rejection = m.pr_rejection_rate ?? 0;
+  if (decidedPrs >= 10 && rejection > 0.5) {
+    flag(
+      "high_pr_rejection",
+      rejection > 0.7 ? 10 : 8,
+      `${m.closed_unmerged_pr_count}/${decidedPrs} 个已决 PR 被拒未合并（被拒率 ` +
+        `${Math.round(rejection * 100)}%）— 低质 / 频繁被拒。`,
+    );
+  }
 
   const penalty = Math.min(
     flags.reduce((a, f) => a + f.penalty, 0),

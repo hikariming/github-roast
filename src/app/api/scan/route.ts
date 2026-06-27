@@ -59,9 +59,9 @@ export async function POST(req: NextRequest) {
 
   try {
     const result = await coalesceScan(username, async (): Promise<ScanResult> => {
-      const { metrics, top_repos, recent_prs } = await collect(username);
+      const { metrics, top_repos, recent_prs, flood_pr_titles } = await collect(username);
       const scoring = score(metrics);
-      return { metrics, top_repos, recent_prs, scoring };
+      return { metrics, top_repos, recent_prs, flood_pr_titles, scoring };
     });
     return NextResponse.json({ ...result, cached: false });
   } catch (e) {
