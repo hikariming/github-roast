@@ -14,7 +14,7 @@ const TIER_PILLS: { key: TierKey; emoji: string; cls: string }[] = [
   { key: "elite", emoji: "🥇", cls: "text-violet-300" },
   { key: "solid", emoji: "💪", cls: "text-emerald-300" },
   { key: "npc", emoji: "🫥", cls: "text-slate-300" },
-  { key: "trash", emoji: "💀", cls: "text-rose-400" },
+  { key: "trash", emoji: "💩", cls: "text-rose-400" },
 ];
 
 export default async function Home({ params }: { params: Promise<{ locale: string }> }) {
