@@ -34,12 +34,12 @@ export function HomeLeaderboardClient({
 
   return (
     <section className="mt-16 w-full max-w-2xl">
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex min-w-0 items-center gap-4 sm:gap-6">
+      <div className="mb-4 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 max-w-full flex-wrap items-center gap-x-4 gap-y-2 sm:gap-x-6">
           <button
             type="button"
             onClick={() => setView("score")}
-            className={`shrink-0 text-xl font-black ${
+            className={`shrink-0 text-xl font-black leading-tight ${
               view === "score" ? "text-zinc-100" : "text-zinc-500 hover:text-zinc-200"
             }`}
             aria-pressed={view === "score"}
@@ -50,7 +50,7 @@ export function HomeLeaderboardClient({
           <button
             type="button"
             onClick={() => setView("heat")}
-            className={`shrink-0 text-lg font-black sm:text-xl ${
+            className={`shrink-0 text-lg font-black leading-tight sm:text-xl ${
               view === "heat" ? "text-zinc-100" : "text-zinc-500 hover:text-red-300"
             }`}
             aria-pressed={view === "heat"}
@@ -60,7 +60,7 @@ export function HomeLeaderboardClient({
         </div>
         <Link
           href={fullBoardHref}
-          className="ml-4 shrink-0 text-xs text-zinc-400 underline-offset-2 hover:text-zinc-200 hover:underline"
+          className="shrink-0 self-end text-xs text-zinc-400 underline-offset-2 hover:text-zinc-200 hover:underline sm:ml-4 sm:self-auto"
         >
           {labels.openBoard}
         </Link>

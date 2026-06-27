@@ -40,11 +40,11 @@ export default async function LeaderboardPage({
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-5 py-14 sm:py-20">
       <header className="mb-8">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex min-w-0 items-center gap-4 sm:gap-6">
+        <div className="flex flex-col items-start gap-5 xl:flex-row xl:items-start xl:justify-between">
+          <div className="flex min-w-0 max-w-full flex-1 flex-wrap items-center gap-x-4 gap-y-3 sm:gap-x-6">
             <Link
               href="/leaderboard"
-              className={`shrink-0 text-3xl font-black tracking-tight sm:text-4xl ${
+              className={`shrink-0 text-3xl font-black leading-tight tracking-tight sm:text-4xl ${
                 view === "score" ? "text-zinc-100" : "text-zinc-500 hover:text-zinc-200"
               }`}
             >
@@ -53,7 +53,7 @@ export default async function LeaderboardPage({
             <span className="h-14 w-1 shrink-0 rotate-12 rounded-full bg-[rgb(255,105,0)] sm:h-20" />
             <Link
               href="/leaderboard?view=heat"
-              className={`shrink-0 text-xl font-black sm:text-2xl ${
+              className={`shrink-0 text-xl font-black leading-tight sm:text-2xl ${
                 view === "heat" ? "text-zinc-100" : "text-zinc-500 hover:text-red-300"
               }`}
             >
