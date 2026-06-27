@@ -62,7 +62,7 @@ export default async function LeaderboardPage({
                 className={`rounded-full px-3 py-1.5 transition-colors ${
                   view === "heat"
                     ? "bg-white/10 text-zinc-100"
-                    : "text-zinc-500 hover:text-red-300"
+                    : "text-zinc-500 hover:text-zinc-200"
                 }`}
               >
                 {t("heatView")}
