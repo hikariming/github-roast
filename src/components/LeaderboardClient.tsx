@@ -129,6 +129,7 @@ export function LeaderboardClient({
           const tierName = tTier(`${TIER_KEY[e.tier]}.name`);
           const detailLabel = labels.viewDetail.replace("{username}", e.username);
           const heatSelected = initialView === "heat";
+          const profileUrl = e.profile_url ?? `https://github.com/${encodeURIComponent(e.username)}`;
           return (
             <li
               key={e.username}
@@ -158,7 +159,14 @@ export function LeaderboardClient({
               )}
               <div className="min-w-0 flex-1">
                 <div className="truncate">
-                  <span className="font-medium group-hover:underline">@{e.username}</span>
+                  <a
+                    href={profileUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="relative z-10 font-medium underline-offset-2 hover:underline"
+                  >
+                    @{e.username}
+                  </a>
                   {e.display_name && (
                     <span className="ml-1.5 text-sm text-zinc-500">{e.display_name}</span>
                   )}
