@@ -267,7 +267,7 @@ export function Roaster() {
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             placeholder={t("inputPlaceholder")}
-            className="flex-1 bg-transparent px-1 py-2 text-base outline-none placeholder:text-zinc-600"
+            className="min-w-0 flex-1 bg-transparent px-1 py-2 text-base outline-none placeholder:text-zinc-600"
             autoCapitalize="off"
             autoCorrect="off"
             spellCheck={false}
@@ -275,7 +275,7 @@ export function Roaster() {
           <button
             type="submit"
             disabled={scanning || roasting || !username.trim()}
-            className="rounded-lg bg-orange-600 px-5 py-2 font-medium text-white transition hover:bg-orange-500 disabled:opacity-40"
+            className="shrink-0 whitespace-nowrap rounded-lg bg-orange-600 px-5 py-2 font-medium text-white transition hover:bg-orange-500 disabled:opacity-40"
           >
             {scanning ? t("judging") : t("judge")}
           </button>
