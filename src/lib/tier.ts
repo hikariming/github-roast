@@ -136,7 +136,7 @@ export const TIER_STYLES: Record<Tier, TierStyle> = {
   },
   拉完了: {
     tier: "拉完了",
-    emoji: "💀",
+    emoji: "💩",
     text: "text-rose-400",
     ring: "ring-rose-500/50",
     glow: "rgba(244,63,94,0.30)",
