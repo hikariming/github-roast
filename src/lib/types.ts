@@ -11,8 +11,10 @@ export interface TopRepo {
   stars: number;
   forks: number;
   open_issues: number;
+  size: number;
   language: string | null;
   description: string | null;
+  pushed_at: string | null;
   readme_excerpt?: string | null;
 }
 
@@ -58,6 +60,10 @@ export interface RawMetrics {
   empty_original_repo_count: number;
   total_stars: number;
   max_stars: number;
+  best_original_repo_quality_score?: number;
+  best_original_repo_quality_repo?: string | null;
+  top_starred_original_repo_quality_score?: number;
+  top_starred_original_repo_quality_repo?: string | null;
   merged_pr_count: number;
   total_pr_count: number;
   issues_created: number;
@@ -69,6 +75,9 @@ export interface RawMetrics {
   recent_trivial_pr_count: number;
   recent_doc_like_pr_count?: number;
   recent_doc_like_pr_ratio?: number;
+  recent_external_pr_sample?: number;
+  recent_external_doc_like_pr_count?: number;
+  recent_external_doc_like_pr_ratio?: number;
   external_trivial_pr_count: number;
   max_impact_repo_stars: number;
   impact_pr_count: number;

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  bestOriginalRepoQuality,
   computeClosedPrBreakdown,
   computeFloodSignals,
   computeImpactFromContribMap,
@@ -7,10 +8,19 @@ import {
   isDocLikeImpactPr,
   isEcosystemImpactPr,
   isExternalTrivialFarmPr,
+  originalRepoQualityScore,
+  topStarredOriginalRepoQuality,
   type ContribRepoAgg,
 } from "../github";
-import { docLikePrVolumeDiscount, logRatio, score, spamBotScore, tierFor } from "../score";
-import type { RawMetrics, RecentPr } from "../types";
+import {
+  contributionQualityCap,
+  docLikePrVolumeDiscount,
+  logRatio,
+  score,
+  spamBotScore,
+  tierFor,
+} from "../score";
+import type { RawMetrics, RecentPr, TopRepo } from "../types";
 import fixtures from "./score-fixtures.json";
 
 const pr = (over: Partial<RecentPr>): RecentPr => ({
@@ -85,6 +95,20 @@ const closedPr = ({
   },
 });
 
+const repo = (over: Partial<TopRepo>): TopRepo => ({
+  name: "project",
+  stars: 0,
+  forks: 0,
+  open_issues: 0,
+  size: 100,
+  language: "TypeScript",
+  description: "A complete useful project",
+  pushed_at: "2026-06-01T00:00:00Z",
+  readme_excerpt:
+    "Install the service, configure usage examples, run the test suite, explore the API, deploy it, review architecture decisions, and inspect screenshots for the complete workflow.",
+  ...over,
+});
+
 describe("spam-PR red flags", () => {
   it("does not fire on a neutral account", () => {
     expect(score(NEUTRAL).red_flags).toHaveLength(0);
@@ -95,7 +119,7 @@ describe("spam-PR red flags", () => {
       ...NEUTRAL,
       pr_flood_suspect: true,
       recent_pr_sample: 18,
-      top_repo_pr_target: "popular-ai/backend",
+      top_repo_pr_target: "org/target",
       top_repo_pr_share: share,
       templated_pr_ratio: templated,
     });
@@ -103,7 +127,7 @@ describe("spam-PR red flags", () => {
       score(m).red_flags.find((f) => f.flag === "templated_pr_flooding")?.penalty;
     expect(pen(mk(0.5, 0.5))).toBe(12); // just-suspect → min
     expect(pen(mk(1.0, 1.0))).toBe(30); // egregious one-repo bot → max
-    const cq = pen(mk(1.0, 0.67))!; // cqjjjzr-ish (all PRs to one repo, 67% templated)
+    const cq = pen(mk(1.0, 0.67))!; // all PRs to one repo, 67% templated
     expect(cq).toBeGreaterThanOrEqual(20);
     expect(cq).toBeLessThanOrEqual(26);
   });
@@ -154,7 +178,7 @@ describe("spam-PR red flags", () => {
   });
 
   it("does NOT flag a heavy self-PR dev (no external garbage)", () => {
-    // iamPulakesh-like: lots of own-repo PRs, zero external-trivial → no spam flags.
+    // Solo-dev-like: lots of own-repo PRs, zero external-trivial → no spam flags.
     const m: RawMetrics = {
       ...NEUTRAL,
       merged_pr_count: 30,
@@ -171,7 +195,7 @@ describe("spamBotScore (hidden 0-10 farming/bot likelihood)", () => {
   });
 
   it("stays ~0 for a genuine solo dev (all PRs into own repo — never penalized)", () => {
-    // iamPulakesh-like: real engineering on own 0-star project. No external garbage,
+    // Real engineering on own 0-star project. No external garbage,
     // no flood → bot_score ≈ 0 regardless of how many self-PRs.
     const m: RawMetrics = {
       ...NEUTRAL,
@@ -193,7 +217,7 @@ describe("spamBotScore (hidden 0-10 farming/bot likelihood)", () => {
     expect(spamBotScore(m)).toBeGreaterThanOrEqual(3);
   });
 
-  it("is HIGH for templated PR flooding of an external repo (cqjjjzr-like)", () => {
+  it("is HIGH for templated PR flooding of an external repo", () => {
     const m: RawMetrics = {
       ...NEUTRAL,
       pr_flood_suspect: true,
@@ -221,17 +245,17 @@ describe("spamBotScore (hidden 0-10 farming/bot likelihood)", () => {
 });
 
 describe("computeFloodSignals", () => {
-  it("flags a cqjjjzr-style one-repo templated burst", () => {
+  it("flags a one-repo templated burst", () => {
     const titles = [
       ...Array.from({ length: 15 }, (_, i) => `refactor(api): migrate ${i} endpoints to BaseModel`),
       "refactor(api): remove legacy field compatibility",
       "refactor(api): remove member field compatibility",
       "chore: rehearse ordered BaseModel migration merge",
     ];
-    const prs = titles.map((title) => ({ title, repo: "popular-ai/backend" }));
+    const prs = titles.map((title) => ({ title, repo: "org/target" }));
     const s = computeFloodSignals(prs);
     expect(s.pr_flood_suspect).toBe(true);
-    expect(s.top_repo_pr_target).toBe("popular-ai/backend");
+    expect(s.top_repo_pr_target).toBe("org/target");
     expect(s.top_repo_pr_share).toBe(1);
     expect(s.templated_pr_ratio).toBeGreaterThanOrEqual(0.5);
     expect(s.flood_pr_titles.length).toBeGreaterThan(0);
@@ -292,11 +316,139 @@ describe("computeClosedPrBreakdown", () => {
   });
 });
 
+describe("original project quality", () => {
+  const now = new Date("2026-06-28T00:00:00Z");
+
+  it("gives substance credit to a complete 0-star original project", () => {
+    const q = originalRepoQualityScore(repo({ stars: 0, size: 1800 }), "alice", now);
+    expect(q).toBeGreaterThanOrEqual(0.8);
+
+    const s = score({
+      ...NEUTRAL,
+      total_stars: 0,
+      max_stars: 0,
+      nonempty_original_repo_count: 1,
+      best_original_repo_quality_score: q,
+    });
+    expect(s.sub_scores.original_project_quality).toBeGreaterThanOrEqual(4.8);
+  });
+
+  it("does not let stars alone max out original quality without project substance", () => {
+    const s = score({
+      ...NEUTRAL,
+      total_stars: 100000,
+      max_stars: 50000,
+      nonempty_original_repo_count: 1,
+      best_original_repo_quality_score: 0,
+    });
+    expect(s.sub_scores.original_project_quality).toBe(12);
+  });
+
+  it("discounts star points when the top-starred repo lacks project substance", () => {
+    const s = score({
+      ...NEUTRAL,
+      total_stars: 200,
+      max_stars: 100,
+      nonempty_original_repo_count: 3,
+      best_original_repo_quality_score: 0.8,
+      top_starred_original_repo_quality_score: 0.15,
+    });
+    const withoutDiscount = score({
+      ...NEUTRAL,
+      total_stars: 200,
+      max_stars: 100,
+      nonempty_original_repo_count: 3,
+      best_original_repo_quality_score: 0.8,
+      top_starred_original_repo_quality_score: 1,
+    });
+    expect(s.sub_scores.original_project_quality).toBeLessThan(
+      withoutDiscount.sub_scores.original_project_quality - 3,
+    );
+  });
+
+  it("downranks profile and WIP-style repos when selecting the best original repo", () => {
+    const best = bestOriginalRepoQuality(
+      [
+        repo({
+          name: "alice",
+          size: 500,
+          readme_excerpt: "Personal profile README with badges and social links.",
+        }),
+        repo({
+          name: "tmp-playground",
+          description: "WIP learning notes",
+          readme_excerpt: "TODO scratch notes",
+        }),
+        repo({
+          name: "invoice-engine",
+          size: 1400,
+          language: "Go",
+          description: "Invoice workflow engine with API and persistence",
+          readme_excerpt:
+            "Install the service, configure the database, run tests, use the API and deploy with Docker.",
+        }),
+      ],
+      "alice",
+      now,
+    );
+    expect(best.repo).toBe("invoice-engine");
+    expect(best.score).toBeGreaterThan(0.7);
+  });
+
+  it("scores the top-starred repo separately from the best usable repo", () => {
+    const topStarred = topStarredOriginalRepoQuality(
+      [
+        repo({
+          name: "alice",
+          stars: 100,
+          size: 500,
+          readme_excerpt: "Personal profile README with badges and social links.",
+        }),
+        repo({
+          name: "usable-engine",
+          stars: 3,
+          size: 1400,
+          language: "Go",
+          description: "Workflow engine with API and persistence",
+          readme_excerpt:
+            "Install the service, configure the database, run tests, use the API and deploy with Docker.",
+        }),
+      ],
+      "alice",
+      now,
+    );
+    const best = bestOriginalRepoQuality(
+      [
+        repo({
+          name: "alice",
+          stars: 100,
+          size: 500,
+          readme_excerpt: "Personal profile README with badges and social links.",
+        }),
+        repo({
+          name: "usable-engine",
+          stars: 3,
+          size: 1400,
+          language: "Go",
+          description: "Workflow engine with API and persistence",
+          readme_excerpt:
+            "Install the service, configure the database, run tests, use the API and deploy with Docker.",
+        }),
+      ],
+      "alice",
+      now,
+    );
+    expect(topStarred.repo).toBe("alice");
+    expect(topStarred.score).toBeLessThan(0.3);
+    expect(best.repo).toBe("usable-engine");
+  });
+});
+
 describe("isExternalTrivialFarmPr (garbage into popular community repos)", () => {
   const me = "alice";
   it("flags a trivial PR into someone else's ≥200★ repo", () => {
     expect(
-      isExternalTrivialFarmPr(pr({ repo: "facebook/react", repo_stars: 200000, trivial: true }), me),
+      isExternalTrivialFarmPr(pr({ repo: "org/framework", repo_stars: 200000, trivial: true }), me),
     ).toBe(true);
   });
   it("does NOT flag PRs into your own repo (any size/substance)", () => {
@@ -306,7 +458,7 @@ describe("isExternalTrivialFarmPr (garbage into popular community repos)", () =>
   });
   it("does NOT flag substantial external PRs, or trivial PRs to small repos", () => {
     expect(
-      isExternalTrivialFarmPr(pr({ repo: "facebook/react", repo_stars: 200000, trivial: false }), me),
+      isExternalTrivialFarmPr(pr({ repo: "org/framework", repo_stars: 200000, trivial: false }), me),
     ).toBe(false);
     expect(
       isExternalTrivialFarmPr(pr({ repo: "someone/tiny", repo_stars: 12, trivial: true }), me),
@@ -314,16 +466,9 @@ describe("isExternalTrivialFarmPr (garbage into popular community repos)", () =>
   });
 });
 
-/**
- * Parity test: the TS port of `score()` must reproduce, byte-for-byte, the output
- * of the canonical Python skill (`fetch_github_profile.py`). Fixtures are the
- * Python `score()` output captured for representative account shapes — see
- * scripts that regenerate them in the README. If these drift, the website and the
- * open-source skill would disagree on the number.
- */
-describe("score() parity with Python skill", () => {
+describe("score() regression fixtures", () => {
   for (const [name, { input, expected }] of Object.entries(fixtures)) {
-    it(`matches Python output for "${name}"`, () => {
+    it(`matches expected output for "${name}"`, () => {
       const result = score(input as unknown as RawMetrics);
       expect(result).toEqual(expected);
     });
@@ -331,21 +476,19 @@ describe("score() parity with Python skill", () => {
 });
 
 describe("isEcosystemImpactPr (dimension 4 qualification)", () => {
-  const me = "karpathy";
+  const me = "maintainer";
 
   it("counts a substantial PR into your OWN ≥1000★ repo (maintainer value)", () => {
-    // karpathy → nanoGPT etc.: maintaining a hugely popular project you created.
-    expect(isEcosystemImpactPr(pr({ repo: "karpathy/nanoGPT", repo_stars: 30000 }), me)).toBe(true);
+    expect(isEcosystemImpactPr(pr({ repo: "maintainer/popular", repo_stars: 30000 }), me)).toBe(true);
   });
 
   it("does NOT count PRs into your own <1000★ repo (self-PR-farming pattern)", () => {
-    // A low-star own repo should not borrow ecosystem impact from self-PR volume.
-    expect(isEcosystemImpactPr(pr({ repo: "asper/junk", repo_stars: 0 }), "asper")).toBe(false);
-    expect(isEcosystemImpactPr(pr({ repo: "karpathy/sidequest", repo_stars: 500 }), me)).toBe(false);
+    expect(isEcosystemImpactPr(pr({ repo: "owner/junk", repo_stars: 0 }), "owner")).toBe(false);
+    expect(isEcosystemImpactPr(pr({ repo: "maintainer/sidequest", repo_stars: 500 }), me)).toBe(false);
   });
 
   it("counts a substantial PR into an external ≥200★ repo", () => {
-    expect(isEcosystemImpactPr(pr({ repo: "popular-ai/backend", repo_stars: 5000 }), me)).toBe(true);
+    expect(isEcosystemImpactPr(pr({ repo: "org/target", repo_stars: 5000 }), me)).toBe(true);
   });
 
   it("does NOT count an external repo below 200★", () => {
@@ -354,36 +497,36 @@ describe("isEcosystemImpactPr (dimension 4 qualification)", () => {
 
   it("never counts trivial (≤5-line) PRs, even into huge repos", () => {
     expect(
-      isEcosystemImpactPr(pr({ repo: "torvalds/linux", repo_stars: 200000, trivial: true }), me),
+      isEcosystemImpactPr(pr({ repo: "org/kernel", repo_stars: 200000, trivial: true }), me),
     ).toBe(false);
   });
 });
 
 describe("computeImpactFromContribMap (all-time PR + commit impact)", () => {
-  const me = "syhily";
+  const me = "contributor";
   const agg = (over: Partial<ContribRepoAgg>): ContribRepoAgg => ({
-    repo: "apache/flink",
+    repo: "foundation/platform",
     stars: 24000,
     is_private: false,
     is_fork: false,
-    owner_login: "apache",
+    owner_login: "foundation",
     commits: 0,
     prs: 0,
     ...over,
   });
 
   it("credits old high-star external work via commits even with no recent PRs", () => {
-    // The syhily/apache-flink case: lots of 2022 commits, outside any recent-PR window.
+    // Older all-time commits can sit outside any recent-PR window.
     const m = computeImpactFromContribMap([agg({ commits: 30, prs: 0 })], me);
     expect(m.max_impact_repo_stars).toBe(24000);
     expect(m.impact_depth_raw).toBeGreaterThan(0);
     expect(m.impact_repo_count).toBe(1);
     expect(m.impact_commit_count).toBe(30);
-    expect(m.impact_repos[0].repo).toBe("apache/flink");
+    expect(m.impact_repos[0].repo).toBe("foundation/platform");
   });
 
   it("credits a single landed PR into an external ≥200★ repo", () => {
-    const m = computeImpactFromContribMap([agg({ repo: "popular-ai/backend", owner_login: "popular-ai", stars: 5000, prs: 1 })], me);
+    const m = computeImpactFromContribMap([agg({ repo: "org/target", owner_login: "org", stars: 5000, prs: 1 })], me);
     expect(m.impact_repo_count).toBe(1);
   });
 
@@ -396,7 +539,7 @@ describe("computeImpactFromContribMap (all-time PR + commit impact)", () => {
   it("excludes forks and private repos", () => {
     const m = computeImpactFromContribMap(
       [
-        agg({ repo: "me/flink-fork", is_fork: true, commits: 50 }),
+        agg({ repo: "me/platform-fork", is_fork: true, commits: 50 }),
         agg({ repo: "me/secret", is_private: true, commits: 50 }),
       ],
       me,
@@ -405,9 +548,9 @@ describe("computeImpactFromContribMap (all-time PR + commit impact)", () => {
   });
 
   it("applies the higher ≥1000★ bar to the user's OWN repos", () => {
-    const own500 = computeImpactFromContribMap([agg({ repo: "syhily/proj", owner_login: "syhily", stars: 500, commits: 50 })], me);
+    const own500 = computeImpactFromContribMap([agg({ repo: "contributor/proj", owner_login: "contributor", stars: 500, commits: 50 })], me);
     expect(own500.impact_repo_count).toBe(0);
-    const own2000 = computeImpactFromContribMap([agg({ repo: "syhily/proj", owner_login: "syhily", stars: 2000, commits: 50 })], me);
+    const own2000 = computeImpactFromContribMap([agg({ repo: "contributor/proj", owner_login: "contributor", stars: 2000, commits: 50 })], me);
     expect(own2000.impact_repo_count).toBe(1);
   });
 
@@ -419,7 +562,7 @@ describe("computeImpactFromContribMap (all-time PR + commit impact)", () => {
 
 describe("impact quality caps", () => {
   it("classifies docs, website, examples, and templates as doc-like impact", () => {
-    expect(isDocLikeImpactPr(pr({ repo: "apache/fory-site", repo_stars: 4000 }))).toBe(true);
+    expect(isDocLikeImpactPr(pr({ repo: "foundation/project-site", repo_stars: 4000 }))).toBe(true);
     expect(isDocLikeImpactPr(pr({ repo: "docs-org/examples", repo_stars: 2000 }))).toBe(true);
     expect(isDocLikeImpactPr(pr({ title: "docs: update install guide", repo_stars: 5000 }))).toBe(true);
     expect(isDocLikeImpactPr(pr({ title: "feat: add project template", repo_stars: 5000 }))).toBe(true);
@@ -445,7 +588,7 @@ describe("impact quality caps", () => {
       }),
       pr({
         title: "fix: update interaction demo",
-        repo: "ant-design/x",
+        repo: "ui-org/components",
         repo_stars: 4600,
         files: ["components/demo/basic.tsx"],
       }),
@@ -520,7 +663,7 @@ describe("impact quality caps", () => {
 });
 
 describe("doc-like PR contribution-quality discount", () => {
-  it("lightly discounts PR volume for docs/site/examples/template-heavy histories", () => {
+  it("strongly discounts PR volume for docs/site/examples/template-heavy histories", () => {
     const m: RawMetrics = {
       ...NEUTRAL,
       username: "DocsHeavyUser",
@@ -545,8 +688,32 @@ describe("doc-like PR contribution-quality discount", () => {
       impact_quality_cap: 4,
     };
     const prVolume = logRatio(m.merged_pr_count, 200) * 16;
-    expect(docLikePrVolumeDiscount(m, prVolume)).toBeCloseTo(3.5, 1);
-    expect(score(m).sub_scores.contribution_quality).toBe(15.4);
+    expect(docLikePrVolumeDiscount(m, prVolume)).toBeCloseTo(5.5, 1);
+    expect(score(m).sub_scores.contribution_quality).toBe(13.4);
+  });
+
+  it("caps contribution quality for low-trust high-star doc-heavy histories", () => {
+    const m: RawMetrics = {
+      ...NEUTRAL,
+      merged_pr_count: 38,
+      total_pr_count: 68,
+      issues_created: 65,
+      total_stars: 158,
+      recent_merged_pr_sample: 38,
+      recent_external_pr_sample: 37,
+      recent_external_doc_like_pr_count: 22,
+      recent_external_doc_like_pr_ratio: 0.59,
+      max_impact_repo_stars: 75125,
+      impact_pr_count: 23,
+      impact_depth_raw: 13.08,
+      impact_quality_cap: 4,
+      core_impact_pr_count: 2,
+      doc_like_impact_pr_count: 3,
+      top_starred_original_repo_quality_score: 0.14,
+      self_closed_external_pr_count: 21,
+    };
+    expect(contributionQualityCap(m)).toBe(12);
+    expect(score(m).sub_scores.contribution_quality).toBe(12);
   });
 
   it("does not discount normal histories with a small docs share", () => {
@@ -555,6 +722,21 @@ describe("doc-like PR contribution-quality discount", () => {
       recent_merged_pr_sample: 50,
       recent_doc_like_pr_count: 8,
       recent_doc_like_pr_ratio: 0.16,
+    };
+    const prVolume = logRatio(m.merged_pr_count, 200) * 16;
+    expect(docLikePrVolumeDiscount(m, prVolume)).toBe(0);
+  });
+
+  it("uses external doc-like ratio so own-repo docs do not drive the discount", () => {
+    const m: RawMetrics = {
+      ...NEUTRAL,
+      merged_pr_count: 50,
+      recent_merged_pr_sample: 50,
+      recent_doc_like_pr_count: 30,
+      recent_doc_like_pr_ratio: 0.6,
+      recent_external_pr_sample: 8,
+      recent_external_doc_like_pr_count: 1,
+      recent_external_doc_like_pr_ratio: 0.13,
     };
     const prVolume = logRatio(m.merged_pr_count, 200) * 16;
     expect(docLikePrVolumeDiscount(m, prVolume)).toBe(0);

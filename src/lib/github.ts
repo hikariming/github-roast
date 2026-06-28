@@ -111,6 +111,97 @@ function parseTs(value: string | null | undefined): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+function meaningfulText(value: string | null | undefined): string {
+  return (value ?? "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function isLikelyPlaceholderProject(repo: TopRepo, loginLower: string): boolean {
+  const name = repo.name.toLowerCase();
+  if (name === loginLower) return true; // profile README repo, not a product/project.
+  const nameAndDesc = `${name} ${repo.description ?? ""}`.toLowerCase();
+  if (/\b(wip|todo|tmp|temp|scratch|playground|practice|learning|notes?|leetcode|algorithm|blog|profile)\b/.test(nameAndDesc)) {
+    return true;
+  }
+  const readme = (repo.readme_excerpt ?? "").toLowerCase();
+  return /\b(wip|todo|scratch project|playground only|learning notes)\b/.test(readme);
+}
+
+/**
+ * 0..1 project substance signal for original repos. Stars are scored separately;
+ * this captures whether at least one original repo looks usable and maintained.
+ */
+export function originalRepoQualityScore(
+  repo: TopRepo,
+  loginLower: string,
+  now = new Date(),
+): number {
+  if (repo.size <= 0) return 0;
+
+  const readme = meaningfulText(repo.readme_excerpt);
+  const desc = meaningfulText(repo.description);
+  const pushed = parseTs(repo.pushed_at);
+  const ageDays = pushed
+    ? Math.floor((now.getTime() - pushed.getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+
+  let s = 0;
+  if (repo.size >= 1000) s += 0.25;
+  else if (repo.size >= 200) s += 0.2;
+  else if (repo.size >= 50) s += 0.15;
+  else if (repo.size >= 10) s += 0.08;
+
+  if (repo.language) s += 0.15;
+  if (desc.length >= 20) s += 0.15;
+
+  if (readme.length >= 800) s += 0.25;
+  else if (readme.length >= 300) s += 0.2;
+  else if (readme.length >= 120) s += 0.12;
+
+  if (/\b(install|usage|quickstart|quick start|api|demo|features?|deploy|architecture|test|screenshot)\b/i.test(readme)) {
+    s += 0.1;
+  }
+
+  if (ageDays !== null) {
+    if (ageDays <= 180) s += 0.1;
+    else if (ageDays <= 365) s += 0.07;
+    else if (ageDays <= 730) s += 0.04;
+  }
+
+  if (isLikelyPlaceholderProject(repo, loginLower)) {
+    s *= readme.length >= 600 && repo.size >= 200 ? 0.55 : 0.25;
+  }
+
+  return Math.round(Math.max(0, Math.min(s, 1)) * 100) / 100;
+}
+
+export function bestOriginalRepoQuality(
+  repos: TopRepo[],
+  loginLower: string,
+  now = new Date(),
+): { score: number; repo: string | null } {
+  let best = { score: 0, repo: null as string | null };
+  for (const repo of repos) {
+    const score = originalRepoQualityScore(repo, loginLower, now);
+    if (score > best.score) best = { score, repo: repo.name };
+  }
+  return best;
+}
+
+export function topStarredOriginalRepoQuality(
+  repos: TopRepo[],
+  loginLower: string,
+  now = new Date(),
+): { score: number; repo: string | null } {
+  const topStarred = repos
+    .filter((repo) => repo.stars > 0)
+    .sort((a, b) => b.stars - a.stars)[0];
+  if (!topStarred) return { score: 0, repo: null };
+  return {
+    score: originalRepoQualityScore(topStarred, loginLower, now),
+    repo: topStarred.name,
+  };
+}
+
 async function fetchReadmeExcerpt(
   owner: string,
   repo: string,
@@ -359,6 +450,15 @@ export function isExternalTrivialFarmPr(pr: RecentPr, loginLower: string): boole
 function repoName(nameWithOwner: string | null | undefined): string {
   const repo = nameWithOwner ?? "";
   return repo.includes("/") ? repo.split("/").pop()?.toLowerCase() ?? "" : repo.toLowerCase();
+}
+
+function repoOwner(nameWithOwner: string | null | undefined): string {
+  const repo = nameWithOwner ?? "";
+  return repo.includes("/") ? repo.split("/", 1)[0].toLowerCase() : "";
+}
+
+function isOwnRepoName(nameWithOwner: string | null | undefined, loginLower: string): boolean {
+  return repoOwner(nameWithOwner) === loginLower;
 }
 
 function isDocLikeRepo(nameWithOwner: string | null | undefined): boolean {
@@ -753,20 +853,24 @@ export async function collect(username: string): Promise<{
       stars: r.stargazers_count ?? 0,
       forks: r.forks_count ?? 0,
       open_issues: r.open_issues_count ?? 0,
+      size: r.size ?? 0,
       language: r.language,
       description: r.description,
+      pushed_at: r.pushed_at,
     }))
     .sort((a, b) => b.stars - a.stars)
     .slice(0, 10);
 
   // README excerpts for the top original repos (capped to limit API calls)
   await Promise.all(
-    topRepos.slice(0, 4).map(async (repo) => {
+    topRepos.slice(0, 6).map(async (repo) => {
       if (repo.stars > 0 || repo.name) {
         repo.readme_excerpt = await fetchReadmeExcerpt(login, repo.name);
       }
     }),
   );
+  const bestOriginalQuality = bestOriginalRepoQuality(topRepos, loginLower, now);
+  const topStarredOriginalQuality = topStarredOriginalRepoQuality(topRepos, loginLower, now);
 
   // Recent merged PRs (titles + diff size + target-repo stars). Keep the public
   // report sample at 50, but use a wider window to verify older popular-repo PRs
@@ -777,6 +881,12 @@ export async function collect(username: string): Promise<{
   const docLikePrCount = recentPrs.filter(isDocLikeImpactPr).length;
   const docLikePrRatio =
     recentPrs.length > 0 ? Math.round((docLikePrCount / recentPrs.length) * 100) / 100 : 0;
+  const recentExternalPrs = recentPrs.filter((p) => !isOwnRepoName(p.repo, loginLower));
+  const externalDocLikePrCount = recentExternalPrs.filter(isDocLikeImpactPr).length;
+  const externalDocLikePrRatio =
+    recentExternalPrs.length > 0
+      ? Math.round((externalDocLikePrCount / recentExternalPrs.length) * 100) / 100
+      : 0;
 
   // Templated-PR flooding signal (recent PRs across all states) — only flags
   // flooding of OTHER people's repos (own-repo floods are normal solo work).
@@ -855,6 +965,10 @@ export async function collect(username: string): Promise<{
     empty_original_repo_count: empty.length,
     total_stars: totalStars,
     max_stars: maxStars,
+    best_original_repo_quality_score: bestOriginalQuality.score,
+    best_original_repo_quality_repo: bestOriginalQuality.repo,
+    top_starred_original_repo_quality_score: topStarredOriginalQuality.score,
+    top_starred_original_repo_quality_repo: topStarredOriginalQuality.repo,
     merged_pr_count: mergedPrCount,
     total_pr_count: totalPrCount,
     issues_created: issuesCreated,
@@ -866,6 +980,9 @@ export async function collect(username: string): Promise<{
     recent_trivial_pr_count: trivialPrs,
     recent_doc_like_pr_count: docLikePrCount,
     recent_doc_like_pr_ratio: docLikePrRatio,
+    recent_external_pr_sample: recentExternalPrs.length,
+    recent_external_doc_like_pr_count: externalDocLikePrCount,
+    recent_external_doc_like_pr_ratio: externalDocLikePrRatio,
     max_impact_repo_stars: maxImpactRepoStars,
     impact_pr_count: impact.impact_pr_count,
     impact_depth_raw: impactDepthRaw,
