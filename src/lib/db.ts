@@ -12,6 +12,7 @@ import { Client, createClient } from "@libsql/client";
 import { createHash } from "node:crypto";
 import { computeTrendingScore, rankTrending } from "./hotness";
 import type { Lang } from "./lang";
+import type { PaperDims, PaperMode, PaperTierKey } from "./paper-types";
 import { rankSimilar } from "./similarity";
 import type { RoastLine, SubScores, Tags, Tier } from "./types";
 
@@ -154,6 +155,36 @@ function ensureSchema(db: Client): Promise<void> {
              last_login  INTEGER NOT NULL
            )`,
           `CREATE UNIQUE INDEX IF NOT EXISTS idx_users_login ON users(login)`,
+          // arXiv 论文锐评: one row per scored paper (score fixed once computed).
+          `CREATE TABLE IF NOT EXISTS papers (
+             arxiv_id      TEXT PRIMARY KEY,
+             title         TEXT NOT NULL,
+             authors       TEXT,
+             categories    TEXT,
+             published     TEXT,
+             citation_count INTEGER,
+             influential_citation_count INTEGER,
+             venue         TEXT,
+             final_score   REAL NOT NULL,
+             tier          TEXT NOT NULL,
+             dims          TEXT,
+             content_base  REAL,
+             citation_bonus REAL,
+             tags          TEXT,
+             tldr_line     TEXT,
+             hidden        INTEGER NOT NULL DEFAULT 0,
+             scored_at     INTEGER NOT NULL
+           )`,
+          `CREATE INDEX IF NOT EXISTS idx_papers_score ON papers(final_score DESC)`,
+          // Commentary per (paper, mode, lang) — populates the detail page.
+          `CREATE TABLE IF NOT EXISTS paper_roasts (
+             arxiv_id   TEXT NOT NULL,
+             mode       TEXT NOT NULL,
+             lang       TEXT NOT NULL,
+             report     TEXT NOT NULL,
+             created_at INTEGER NOT NULL,
+             PRIMARY KEY (arxiv_id, mode, lang)
+           )`,
         ],
         "write",
       );
@@ -862,5 +893,244 @@ export async function upsertUser(u: UserUpsert): Promise<void> {
     });
   } catch (e) {
     console.error("upsertUser failed:", e);
+  }
+}
+
+// ─────────────────────────── arXiv 论文锐评 ───────────────────────────
+
+export interface PaperEntry {
+  arxiv_id: string;
+  title: string;
+  authors: string[];
+  categories: string[];
+  published: string | null;
+  citation_count: number | null;
+  influential_citation_count: number | null;
+  venue: string | null;
+  final_score: number;
+  tier: PaperTierKey;
+  dims: PaperDims;
+  content_base: number;
+  citation_bonus: number;
+  tags: Tags;
+  tldr_line: RoastLine;
+  scored_at: number;
+}
+
+export type PaperDetail = PaperEntry;
+
+export interface PaperListEntry {
+  arxiv_id: string;
+  title: string;
+  authors: string[];
+  final_score: number;
+  tier: PaperTierKey;
+  tags: Tags;
+  citation_count: number | null;
+}
+
+function parseStrArray(raw: unknown): string[] {
+  if (typeof raw !== "string" || !raw) return [];
+  try {
+    const a = JSON.parse(raw);
+    return Array.isArray(a) ? a.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+const EMPTY_DIMS: PaperDims = {
+  novelty: 0,
+  rigor: 0,
+  significance: 0,
+  clarity: 0,
+  reproducibility: 0,
+};
+
+function parseDims(raw: unknown): PaperDims {
+  if (typeof raw !== "string" || !raw) return EMPTY_DIMS;
+  try {
+    const d = JSON.parse(raw) as Partial<PaperDims>;
+    return {
+      novelty: Number(d.novelty) || 0,
+      rigor: Number(d.rigor) || 0,
+      significance: Number(d.significance) || 0,
+      clarity: Number(d.clarity) || 0,
+      reproducibility: Number(d.reproducibility) || 0,
+    };
+  } catch {
+    return EMPTY_DIMS;
+  }
+}
+
+/** Upsert a scored paper. The score is fixed once computed — callers only invoke
+ *  this on a genuinely fresh score (the roast route reuses an existing one). */
+export async function recordPaper(p: PaperEntry): Promise<void> {
+  const db = getClient();
+  if (!db) return;
+  try {
+    await ensureSchema(db);
+    await db.execute({
+      sql: `INSERT INTO papers
+              (arxiv_id, title, authors, categories, published, citation_count,
+               influential_citation_count, venue, final_score, tier, dims,
+               content_base, citation_bonus, tags, tldr_line, scored_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(arxiv_id) DO UPDATE SET
+              citation_count = excluded.citation_count,
+              influential_citation_count = excluded.influential_citation_count,
+              venue = excluded.venue`,
+      args: [
+        p.arxiv_id,
+        p.title,
+        JSON.stringify(p.authors),
+        JSON.stringify(p.categories),
+        p.published,
+        p.citation_count,
+        p.influential_citation_count,
+        p.venue,
+        p.final_score,
+        p.tier,
+        JSON.stringify(p.dims),
+        p.content_base,
+        p.citation_bonus,
+        JSON.stringify(p.tags),
+        JSON.stringify(p.tldr_line),
+        p.scored_at,
+      ],
+    });
+  } catch (e) {
+    console.error("recordPaper failed:", e);
+  }
+}
+
+function rowToPaper(r: Record<string, unknown>): PaperDetail {
+  return {
+    arxiv_id: String(r.arxiv_id),
+    title: String(r.title),
+    authors: parseStrArray(r.authors),
+    categories: parseStrArray(r.categories),
+    published: (r.published as string | null) ?? null,
+    citation_count: r.citation_count == null ? null : Number(r.citation_count),
+    influential_citation_count:
+      r.influential_citation_count == null ? null : Number(r.influential_citation_count),
+    venue: (r.venue as string | null) ?? null,
+    final_score: Number(r.final_score),
+    tier: String(r.tier) as PaperTierKey,
+    dims: parseDims(r.dims),
+    content_base: Number(r.content_base),
+    citation_bonus: Number(r.citation_bonus),
+    tags: parseTags(r.tags),
+    tldr_line: parseRoastLine(r.tldr_line),
+    scored_at: Number(r.scored_at),
+  };
+}
+
+export async function getPaper(arxivId: string): Promise<PaperDetail | null> {
+  const db = getClient();
+  if (!db) return null;
+  try {
+    await ensureSchema(db);
+    const res = await db.execute({
+      sql: `SELECT * FROM papers WHERE arxiv_id = ? AND hidden = 0 LIMIT 1`,
+      args: [arxivId],
+    });
+    const r = res.rows[0];
+    return r ? rowToPaper(r as unknown as Record<string, unknown>) : null;
+  } catch (e) {
+    console.error("getPaper failed:", e);
+    return null;
+  }
+}
+
+/** Persist the commentary for one (paper, mode, lang) — feeds the detail page. */
+export async function updatePaperRoast(
+  arxivId: string,
+  mode: PaperMode,
+  lang: Lang,
+  report: string,
+): Promise<void> {
+  const db = getClient();
+  if (!db) return;
+  try {
+    await ensureSchema(db);
+    await db.execute({
+      sql: `INSERT INTO paper_roasts (arxiv_id, mode, lang, report, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(arxiv_id, mode, lang) DO UPDATE SET
+              report = excluded.report, created_at = excluded.created_at`,
+      args: [arxivId, mode, lang, report, Date.now()],
+    });
+  } catch (e) {
+    console.error("updatePaperRoast failed:", e);
+  }
+}
+
+export async function getPaperRoast(
+  arxivId: string,
+  mode: PaperMode,
+  lang: Lang,
+): Promise<string | null> {
+  const db = getClient();
+  if (!db) return null;
+  try {
+    await ensureSchema(db);
+    const res = await db.execute({
+      sql: `SELECT report FROM paper_roasts WHERE arxiv_id = ? AND mode = ? AND lang = ? LIMIT 1`,
+      args: [arxivId, mode, lang],
+    });
+    const r = res.rows[0];
+    return r ? String(r.report) : null;
+  } catch (e) {
+    console.error("getPaperRoast failed:", e);
+    return null;
+  }
+}
+
+/** Paper board: `top` = 神作榜 (highest first), `bottom` = 灌水榜 (lowest first). */
+export async function getPaperLeaderboard(
+  order: "top" | "bottom" = "top",
+  limit = 50,
+): Promise<PaperListEntry[]> {
+  const db = getClient();
+  if (!db) return [];
+  try {
+    await ensureSchema(db);
+    const dir = order === "bottom" ? "ASC" : "DESC";
+    const res = await db.execute({
+      sql: `SELECT arxiv_id, title, authors, final_score, tier, tags, citation_count
+            FROM papers WHERE hidden = 0
+            ORDER BY final_score ${dir}, scored_at DESC
+            LIMIT ?`,
+      args: [limit],
+    });
+    return res.rows.map((r) => ({
+      arxiv_id: String(r.arxiv_id),
+      title: String(r.title),
+      authors: parseStrArray(r.authors),
+      final_score: Number(r.final_score),
+      tier: String(r.tier) as PaperTierKey,
+      tags: parseTags(r.tags),
+      citation_count: r.citation_count == null ? null : Number(r.citation_count),
+    }));
+  } catch (e) {
+    console.error("getPaperLeaderboard failed:", e);
+    return [];
+  }
+}
+
+/** All indexable paper ids + last-scored time, for the sitemap. */
+export async function getAllPaperIds(): Promise<{ arxiv_id: string; scored_at: number }[]> {
+  const db = getClient();
+  if (!db) return [];
+  try {
+    await ensureSchema(db);
+    const res = await db.execute(
+      `SELECT arxiv_id, scored_at FROM papers WHERE hidden = 0 ORDER BY final_score DESC`,
+    );
+    return res.rows.map((r) => ({ arxiv_id: String(r.arxiv_id), scored_at: Number(r.scored_at) }));
+  } catch (e) {
+    console.error("getAllPaperIds failed:", e);
+    return [];
   }
 }

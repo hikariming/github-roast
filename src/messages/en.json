@@ -18,12 +18,23 @@
   },
   "paperMeta": {
     "title": "arXiv Paper Roast | GitHub Roast",
-    "description": "Drop an arXiv paper for a strict 0-100 quality score plus commentary in roast or praise mode. Landmark work like Transformer scores top; filler gets exposed."
+    "description": "Drop an arXiv paper for a strict 0-100 quality score plus commentary in roast or praise mode. Landmark work like Transformer scores top; filler gets exposed.",
+    "detailTitle": "{title} — {score}/100 · {tier} | arXiv Paper Roast",
+    "notFoundTitle": "Paper not found · arXiv Paper Roast",
+    "boardTitle": "Paper Roast Board · Hall of Fame / Filler | GitHub Roast",
+    "boardDescription": "Ranked, strictly-scored arXiv papers: the Hall of Fame for the best, the Filler board for the worst."
   },
   "paper": {
     "heading": "arXiv Paper Roast",
     "tagline": "Drop an arXiv link or ID — strict score + roast/praise commentary.",
     "betaPill": "Beta · arXiv only",
+    "backToBoard": "← Back to the board",
+    "permalink": "Permanent page / share →",
+    "detailCta": "Roast another paper →",
+    "detailNoMode": "This tone hasn't been generated yet — <a>roast it again</a> to create it.",
+    "boardTop": "🏆 Hall of Fame",
+    "boardBottom": "💧 Filler board",
+    "boardEmpty": "🧮 No papers on the board yet — go roast one…",
     "inputPlaceholder": "arXiv link or ID, e.g. 1706.03762",
     "judge": "Roast it",
     "judging": "Fetching…",

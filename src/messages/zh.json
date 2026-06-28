@@ -18,12 +18,23 @@
   },
   "paperMeta": {
     "title": "arxiv 论文锐评 | 毒舌 GitHub",
-    "description": "贴一篇 arXiv 论文,30 秒得到一份严格的 0-100 分质量评分 + 辣评/夸夸两种语气的点评。Transformer 这种封神,灌水的原形毕露。"
+    "description": "贴一篇 arXiv 论文,30 秒得到一份严格的 0-100 分质量评分 + 辣评/夸夸两种语气的点评。Transformer 这种封神,灌水的原形毕露。",
+    "detailTitle": "{title} — {score}/100 · {tier} | arxiv 论文锐评",
+    "notFoundTitle": "查无此文 · arxiv 论文锐评",
+    "boardTitle": "论文锐评榜 · 神作榜 / 灌水榜 | 毒舌 GitHub",
+    "boardDescription": "被严格评分的 arXiv 论文排行:神作榜看最高分,灌水榜看最低分。"
   },
   "paper": {
     "heading": "arxiv 论文锐评",
     "tagline": "贴一个 arXiv 链接或 ID,严格打分 + 辣评/夸夸点评。",
     "betaPill": "Beta · 仅支持 arXiv",
+    "backToBoard": "← 返回论文榜",
+    "permalink": "查看固定页 / 分享 →",
+    "detailCta": "去评测另一篇 →",
+    "detailNoMode": "这个语气还没生成 —— <a>去重新评测一次</a> 即可生成。",
+    "boardTop": "🏆 神作榜",
+    "boardBottom": "💧 灌水榜",
+    "boardEmpty": "🧮 还没有论文上榜,快去评一篇…",
     "inputPlaceholder": "arXiv 链接或 ID,如 1706.03762",
     "judge": "开始锐评",
     "judging": "抓取中…",

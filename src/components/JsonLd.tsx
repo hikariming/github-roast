@@ -84,6 +84,39 @@ export function profileJsonLd(opts: {
   };
 }
 
+/** A paper review: a Review of a ScholarlyArticle with a 0–100 rating. */
+export function paperReviewJsonLd(opts: {
+  arxivId: string;
+  title: string;
+  authors: string[];
+  score: number;
+  tldr: string;
+  locale: string;
+}) {
+  const path = opts.locale === "en" ? `/en/arxiv/${opts.arxivId}` : `/arxiv/${opts.arxivId}`;
+  return {
+    "@context": "https://schema.org",
+    "@type": "Review",
+    url: `${SITE_URL}${path}`,
+    itemReviewed: {
+      "@type": "ScholarlyArticle",
+      name: opts.title,
+      ...(opts.authors.length
+        ? { author: opts.authors.slice(0, 12).map((a) => ({ "@type": "Person", name: a })) }
+        : {}),
+      sameAs: `https://arxiv.org/abs/${opts.arxivId}`,
+    },
+    reviewRating: {
+      "@type": "Rating",
+      ratingValue: opts.score,
+      bestRating: 100,
+      worstRating: 0,
+    },
+    ...(opts.tldr ? { reviewBody: opts.tldr } : {}),
+    author: { "@type": "Organization", name: "GitHub Roast", url: `${SITE_URL}/` },
+  };
+}
+
 /** The leaderboard as a ranked developer directory (CollectionPage + ItemList). */
 export function leaderboardJsonLd(opts: {
   name: string;

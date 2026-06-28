@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { Link } from "@/i18n/navigation";
 import { PAPER_DIM_KEYS, paperTierStyle } from "@/lib/paper-score";
 import type { PaperData, PaperDims, PaperMeta, PaperMode } from "@/lib/paper-types";
 import { ByoKeyConfig, ByoKeyModal, loadByoKey } from "./ByoKeyModal";
@@ -241,6 +242,15 @@ export function PaperRoaster() {
                       </span>
                     ))}
                   </div>
+                )}
+                {!roasting && (
+                  <Link
+                    href={`/arxiv/${paper.arxiv_id}`}
+                    prefetch={false}
+                    className="mt-4 text-xs text-orange-400 underline-offset-2 hover:underline"
+                  >
+                    {t("permalink")}
+                  </Link>
                 )}
               </>
             ) : (

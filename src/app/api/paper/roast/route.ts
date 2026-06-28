@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getPaper, recordPaper, updatePaperRoast } from "@/lib/db";
 import { normLang } from "@/lib/lang";
 import { LlmConfig, LlmQuotaError, chatStream, defaultLlmConfig } from "@/lib/llm";
 import { buildPaperMessages } from "@/lib/paper-prompt";
@@ -109,9 +110,15 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Reuse a persisted score so it stays stable forever (across modes/sessions).
+  // Client passes `locked` for snappy in-session tone switches; the DB lookup
+  // covers fresh sessions and the detail page.
+  const existing = body.locked ? null : await getPaper(paper.arxiv_id);
+  const lock = body.locked ?? (existing ? { score: existing.final_score, dims: existing.dims } : null);
+
   const generator = chatStream(
     config,
-    buildPaperMessages({ paper, mode, lang, locked: body.locked }),
+    buildPaperMessages({ paper, mode, lang, locked: lock ?? undefined }),
     { temperature: PAPER_TEMPERATURE },
   );
 
@@ -134,25 +141,26 @@ export async function POST(req: NextRequest) {
   const tldr_line = parseTldr(head);
   const report = extractReport(head);
 
-  // Locked (tone switch): reuse the fixed score. Else compute from the rubric.
+  // Locked (tone switch / existing paper): reuse the fixed score. Else compute.
   let dims: PaperDims;
   let content_base: number;
   let citation_bonus: number;
   let final: number;
-  if (body.locked) {
-    dims = body.locked.dims;
+  if (lock) {
+    dims = lock.dims;
     content_base = contentBase(dims);
-    citation_bonus = Math.round((body.locked.score - content_base) * 100) / 100;
-    final = body.locked.score;
+    citation_bonus = Math.round((lock.score - content_base) * 100) / 100;
+    final = lock.score;
   } else {
     dims = parseScores(head);
     content_base = contentBase(dims);
     citation_bonus = citationBonus(paper);
     final = finalScore(dims, paper);
   }
+  const tier = paperTierFor(final);
   const meta: PaperMeta = {
     final_score: final,
-    tier: paperTierFor(final),
+    tier,
     dims,
     content_base,
     citation_bonus,
@@ -160,9 +168,33 @@ export async function POST(req: NextRequest) {
     tldr_line,
   };
 
+  // Persist a freshly computed score (default model only — mirrors the GitHub
+  // roast). An existing/locked score is already stored, so skip.
+  if (!lock && isDefault) {
+    await recordPaper({
+      arxiv_id: paper.arxiv_id,
+      title: paper.title,
+      authors: paper.authors,
+      categories: paper.categories,
+      published: paper.published,
+      citation_count: paper.citation_count,
+      influential_citation_count: paper.influential_citation_count,
+      venue: paper.venue,
+      final_score: final,
+      tier,
+      dims,
+      content_base,
+      citation_bonus,
+      tags,
+      tldr_line,
+      scored_at: Date.now(),
+    });
+  }
+
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      let full = report;
       const push = (b: Uint8Array) => {
         try {
           controller.enqueue(b);
@@ -172,7 +204,14 @@ export async function POST(req: NextRequest) {
       };
       try {
         if (report) push(encoder.encode(report));
-        for await (const chunk of generator) push(encoder.encode(chunk));
+        for await (const chunk of generator) {
+          full += chunk;
+          push(encoder.encode(chunk));
+        }
+        // Persist the commentary (default model only) so the detail page has it.
+        if (isDefault && full.trim()) {
+          await updatePaperRoast(paper.arxiv_id, mode, lang, full);
+        }
       } catch (e) {
         console.error("paper roast stream error:", e);
       } finally {
