@@ -66,6 +66,7 @@ export function defaultLlmConfig(): LlmConfig | null {
 export async function* chatStream(
   config: LlmConfig,
   messages: ChatMessage[],
+  opts?: { temperature?: number },
 ): AsyncGenerator<string> {
   const base = config.baseURL.replace(/\/$/, "");
   let res: Response;
@@ -83,7 +84,7 @@ export async function* chatStream(
         model: config.model,
         messages,
         stream: true,
-        temperature: 0.85,
+        temperature: opts?.temperature ?? 0.85,
       }),
     });
   } catch (e) {

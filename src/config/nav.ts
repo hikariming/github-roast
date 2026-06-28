@@ -12,18 +12,27 @@
 export type NavItem = {
   /** i18n key under the `nav` namespace, e.g. "leaderboard". */
   key: string;
-  /** Internal path for the locale-aware `Link` from `@/i18n/navigation`. */
-  href: string;
+  /** Internal path for the locale-aware `Link`. Omitted for a pure dropdown parent. */
+  href?: string;
   /** Optional icon token resolved inside `NavLinks` (no icons yet). */
   icon?: string;
   /** Match the pathname exactly instead of treating `href` as a section prefix. */
   exact?: boolean;
+  /** Small label badge, e.g. "beta". */
+  badge?: string;
+  /** Submenu items — when present this entry renders as a dropdown parent. */
+  children?: NavItem[];
 };
 
 export const NAV_ITEMS: NavItem[] = [
-  // 「锐评」= 首页的 GitHub 毒舌评分入口。exact:true 必需 —— 否则 href "/" 的
-  // 前缀匹配会让它在每个页面都高亮。后续「论文锐评」等可归到这个类目下。
-  { key: "roast", href: "/", exact: true },
+  // 「锐评」是下拉父级:GitHub 锐评(首页)+ arxiv 锐评(beta)。
+  {
+    key: "roast",
+    children: [
+      { key: "githubRoast", href: "/", exact: true },
+      { key: "arxivRoast", href: "/arxiv", badge: "beta" },
+    ],
+  },
   { key: "leaderboard", href: "/leaderboard" },
   // P1 落地后加: { key: "developers", href: "/developers" },
 ];
