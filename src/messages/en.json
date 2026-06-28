@@ -42,6 +42,7 @@
     "empty": "🧮 Crunching the numbers — check back soon…",
     "prev": "← Prev",
     "next": "Next →",
+    "pageJumpLabel": "Go to page",
     "collapse": "Collapse",
     "scoreView": "Top Scores",
     "heatView": "🔥 Most Roasted",

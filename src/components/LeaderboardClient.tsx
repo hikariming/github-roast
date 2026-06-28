@@ -1,10 +1,11 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
-import { useState } from "react";
+import { type FormEvent, useState } from "react";
 import { Link } from "@/i18n/navigation";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
 import type { Tier } from "@/lib/types";
+import { resolveLeaderboardPageInput } from "./leaderboardPagination";
 
 export interface LeaderboardClientEntry {
   username: string;
@@ -23,6 +24,7 @@ export interface LeaderboardLabels {
   empty: string;
   prev: string;
   next: string;
+  pageJumpLabel: string;
   collapse: string;
   viewDetail: string;
   heatLabel: string;
@@ -115,6 +117,7 @@ export function LeaderboardClient({
   const locale = useLocale();
   const tTier = useTranslations("tiers");
   const [page, setPage] = useState(0);
+  const [pageInput, setPageInput] = useState({ page: 0, value: "1" });
   const entries =
     initialView === "heat"
       ? heatEntries
@@ -122,16 +125,33 @@ export function LeaderboardClient({
         ? progressEntries
         : scoreEntries;
   const tagLocale = tagLocaleFor(locale);
+  const totalPages = pageSize ? Math.max(1, Math.ceil(entries.length / pageSize)) : 1;
+  const current = Math.min(page, totalPages - 1);
+  const currentPageInput = pageInput.page === current ? pageInput.value : String(current + 1);
+  const visible = pageSize ? entries.slice(current * pageSize, (current + 1) * pageSize) : entries;
+  const offset = pageSize ? current * pageSize : 0;
+
+  function goToPage(nextPage: number) {
+    const target = resolveLeaderboardPageInput(String(nextPage + 1), current, totalPages);
+    setPage(target);
+    setPageInput({ page: target, value: String(target + 1) });
+  }
+
+  function commitPageInput() {
+    const target = resolveLeaderboardPageInput(currentPageInput, current, totalPages);
+    setPage(target);
+    setPageInput({ page: target, value: String(target + 1) });
+  }
+
+  function handlePageSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    commitPageInput();
+  }
 
   if (entries.length === 0) {
     const emptyMsg = initialView === "progress" ? labels.progressEmpty : labels.empty;
     return <p className="text-center text-zinc-500">{emptyMsg}</p>;
   }
-
-  const totalPages = pageSize ? Math.max(1, Math.ceil(entries.length / pageSize)) : 1;
-  const current = Math.min(page, totalPages - 1);
-  const visible = pageSize ? entries.slice(current * pageSize, (current + 1) * pageSize) : entries;
-  const offset = pageSize ? current * pageSize : 0;
 
   return (
     <>
@@ -266,17 +286,30 @@ export function LeaderboardClient({
       {pageSize && totalPages > 1 && (
         <div className="mt-4 flex items-center justify-center gap-4 text-sm">
           <button
-            onClick={() => setPage(Math.max(0, current - 1))}
+            onClick={() => goToPage(current - 1)}
             disabled={current === 0}
             className="rounded-lg border border-white/10 px-3 py-1.5 text-zinc-300 hover:bg-white/10 disabled:opacity-40"
           >
             {labels.prev}
           </button>
-          <span className="tabular-nums text-zinc-500">
-            {current + 1} / {totalPages}
-          </span>
+          <form
+            onSubmit={handlePageSubmit}
+            className="flex items-center gap-1 tabular-nums text-zinc-500"
+          >
+            <input
+              aria-label={labels.pageJumpLabel}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={currentPageInput}
+              onBlur={commitPageInput}
+              onChange={(event) => setPageInput({ page: current, value: event.target.value })}
+              className="w-14 rounded-lg border border-white/10 bg-transparent px-2 py-1 text-center text-zinc-300 outline-none hover:bg-white/10 focus:border-orange-500/60 focus:bg-white/[0.03]"
+            />
+            <span>/ {totalPages}</span>
+          </form>
           <button
-            onClick={() => setPage(Math.min(totalPages - 1, current + 1))}
+            onClick={() => goToPage(current + 1)}
             disabled={current >= totalPages - 1}
             className="rounded-lg border border-white/10 px-3 py-1.5 text-zinc-300 hover:bg-white/10 disabled:opacity-40"
           >

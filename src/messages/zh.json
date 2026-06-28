@@ -42,6 +42,7 @@
     "empty": "🧮 正在计算中，稍后再来看看…",
     "prev": "← 上一页",
     "next": "下一页 →",
+    "pageJumpLabel": "跳转到页码",
     "collapse": "收起",
     "scoreView": "评分榜",
     "heatView": "🔥 热度榜",

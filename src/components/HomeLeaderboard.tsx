@@ -10,6 +10,7 @@ export async function HomeLeaderboard({ pageSize = 10 }: { pageSize?: number }) 
     empty: tBoard("empty"),
     prev: tBoard("prev"),
     next: tBoard("next"),
+    pageJumpLabel: tBoard("pageJumpLabel"),
     collapse: tBoard("collapse"),
     viewDetail: tBoard("viewDetail", { username: "{username}" }),
     heatLabel: tBoard("heatLabel"),
