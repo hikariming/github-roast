@@ -9,6 +9,7 @@
   },
   "nav": {
     "brand": "GitHub Roast",
+    "roast": "Roast",
     "leaderboard": "Leaderboard",
     "openMenu": "Open menu",
     "closeMenu": "Close menu"

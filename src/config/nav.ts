@@ -21,6 +21,9 @@ export type NavItem = {
 };
 
 export const NAV_ITEMS: NavItem[] = [
+  // 「锐评」= 首页的 GitHub 毒舌评分入口。exact:true 必需 —— 否则 href "/" 的
+  // 前缀匹配会让它在每个页面都高亮。后续「论文锐评」等可归到这个类目下。
+  { key: "roast", href: "/", exact: true },
   { key: "leaderboard", href: "/leaderboard" },
   // P1 落地后加: { key: "developers", href: "/developers" },
 ];
