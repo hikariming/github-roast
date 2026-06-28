@@ -17,6 +17,11 @@ import type { RoastLine, SubScores, Tags, Tier } from "./types";
 const EMPTY_TAGS: Tags = { zh: [], en: [] };
 const HEAT_LOOKUP_WINDOW_MS = 24 * 60 * 60 * 1000;
 const MIN_RECORDED_LOOKUP_COUNT = 1;
+// Only roll the previous score forward when this much time has passed since the
+// last recorded scan. Distinguishes a genuine re-scan (≥24h apart, since scans
+// are cached 24h) from the same session re-recording in the other language a few
+// seconds later — the latter must not clobber a real improvement.
+const PROGRESS_MIN_GAP_MS = 60 * 60 * 1000;
 
 function parseTags(raw: unknown): Tags {
   if (typeof raw !== "string" || !raw) return EMPTY_TAGS;
@@ -153,6 +158,10 @@ function ensureSchema(db: Client): Promise<void> {
         // Bilingual one-liner {zh,en} JSON — generated in one LLM call so the
         // roast shows in the visitor's language regardless of report language.
         "roast_line TEXT",
+        // Previous scan's score + timestamp, kept for the 进步榜 (progress board).
+        // Populated by recordScore on a genuinely later re-scan; NULL until then.
+        "prev_score REAL",
+        "prev_scanned_at INTEGER",
       ]) {
         try {
           await db.execute(`ALTER TABLE scores ADD COLUMN ${col}`);
@@ -194,212 +203,10 @@ export interface LeaderboardEntry {
   tier: Tier;
   tags: Tags;
   lookup_count: number;
-}
-
-const PREVIEW_SUB_SCORES: SubScores = {
-  account_maturity: 10,
-  original_project_quality: 18,
-  contribution_quality: 26,
-  ecosystem_impact: 20,
-  community_influence: 8,
-  activity_authenticity: 17,
-};
-
-const PREVIEW_SCANNED_AT = 1_800_000_000_000;
-
-const PREVIEW_ACCOUNTS: AccountDetail[] = [
-  {
-    username: "demo-hot-legend",
-    display_name: "Preview Legend",
-    avatar_url: null,
-    profile_url: null,
-    final_score: 100,
-    tier: "夯",
-    tags: {
-      zh: ["开源狠人", "热度爆表", "满分选手"],
-      en: ["oss beast", "hot profile", "perfect score"],
-    },
-    sub_scores: PREVIEW_SUB_SCORES,
-    roast_line: { zh: "满分预览号，挑不出毛病只能夸。", en: "A perfect preview profile — nothing left to roast." },
-    roast:
-      "## 本地预览数据\n\n这个账号是开发环境假数据，用来检查榜单热度布局。生产环境不会显示这些示例账号。",
-    roast_en:
-      "## Local preview data\n\nThis is development-only sample data for checking the leaderboard heat layout.",
-    scanned_at: PREVIEW_SCANNED_AT,
-  },
-  {
-    username: "demo-heat-runner",
-    display_name: "Preview Runner",
-    avatar_url: null,
-    profile_url: null,
-    final_score: 96.42,
-    tier: "夯",
-    tags: {
-      zh: ["高频被查", "框架老炮", "PR 稳定"],
-      en: ["frequently roasted", "framework veteran", "steady prs"],
-    },
-    sub_scores: {
-      ...PREVIEW_SUB_SCORES,
-      contribution_quality: 25,
-      activity_authenticity: 16,
-    },
-    roast_line: { zh: "热度榜二把手，预览专用工具人。", en: "Runner-up on the heat board — a preview stand-in." },
-    roast:
-      "## 本地预览数据\n\n这个账号用于验证热度榜第二名和详情页跳转，不代表真实 GitHub 用户。",
-    roast_en:
-      "## Local preview data\n\nThis sample account validates the second heat rank and detail-page flow.",
-    scanned_at: PREVIEW_SCANNED_AT - 1,
-  },
-  {
-    username: "demo-score-smith",
-    display_name: "Preview Smith",
-    avatar_url: null,
-    profile_url: null,
-    final_score: 94.18,
-    tier: "顶级",
-    tags: {
-      zh: ["稳定输出", "工具匠人", "社区常客"],
-      en: ["steady output", "tool builder", "community regular"],
-    },
-    sub_scores: {
-      ...PREVIEW_SUB_SCORES,
-      ecosystem_impact: 18,
-      community_influence: 7,
-    },
-    roast_line: { zh: "稳定输出的工具匠，分数排版试金石。", en: "Steady tool builder — here to test the score layout." },
-    roast:
-      "## 本地预览数据\n\n这个账号用于验证热度数字和评分数字在同一个右侧块里上下并列。",
-    roast_en:
-      "## Local preview data\n\nThis sample account validates the stacked score and heat block.",
-    scanned_at: PREVIEW_SCANNED_AT - 2,
-  },
-  {
-    username: "demo-fresh-star",
-    display_name: "Preview Fresh Star",
-    avatar_url: null,
-    profile_url: null,
-    final_score: 88.73,
-    tier: "人上人",
-    tags: {
-      zh: ["新晋热门", "项目很亮", "增长快"],
-      en: ["rising", "bright projects", "fast growth"],
-    },
-    sub_scores: {
-      ...PREVIEW_SUB_SCORES,
-      account_maturity: 7,
-      contribution_quality: 22,
-      ecosystem_impact: 15,
-    },
-    roast_line: { zh: "新晋热门，靠分页排序刷存在感。", en: "A rising star padding out the pagination demo." },
-    roast:
-      "## 本地预览数据\n\n这个账号用于拉开热度榜分页和排序差异。",
-    roast_en:
-      "## Local preview data\n\nThis sample account creates more variety in the heat ranking.",
-    scanned_at: PREVIEW_SCANNED_AT - 3,
-  },
-  {
-    username: "demo-npc-average",
-    display_name: "Preview NPC",
-    avatar_url: null,
-    profile_url: null,
-    final_score: 62.18,
-    tier: "NPC",
-    tags: {
-      zh: ["均匀平庸", "存在感稀薄", "还没成型"],
-      en: ["evenly average", "low signal", "not formed yet"],
-    },
-    sub_scores: {
-      account_maturity: 6,
-      original_project_quality: 7,
-      contribution_quality: 16,
-      ecosystem_impact: 7,
-      community_influence: 3,
-      activity_authenticity: 13,
-    },
-    roast_line: { zh: "过线但没亮点，标准 NPC。", en: "Past the line but unremarkable — a textbook NPC." },
-    roast:
-      "## 本地预览数据\n\n这个账号用于验证 NPC 档位：分数过线但没有亮点，头像框应显示笑脸围绕。",
-    roast_en:
-      "## Local preview data\n\nThis sample account validates the NPC tier and its smiley avatar frame.",
-    scanned_at: PREVIEW_SCANNED_AT - 4,
-  },
-  {
-    username: "demo-trash-fire",
-    display_name: "Preview Trash",
-    avatar_url: null,
-    profile_url: null,
-    final_score: 28.66,
-    tier: "拉完了",
-    tags: {
-      zh: ["刷量疑云", "项目空心", "收藏夹开发者"],
-      en: ["farm signals", "hollow repos", "bookmark dev"],
-    },
-    sub_scores: {
-      account_maturity: 2,
-      original_project_quality: 1,
-      contribution_quality: 8,
-      ecosystem_impact: 0,
-      community_influence: 1,
-      activity_authenticity: 9,
-    },
-    roast_line: { zh: "低分低贡献，收藏夹开发者实锤。", en: "Low score, hollow repos — a bookmark dev." },
-    roast:
-      "## 本地预览数据\n\n这个账号用于验证拉完了档位：低分、低贡献、低影响力，头像框应显示便便围绕。",
-    roast_en:
-      "## Local preview data\n\nThis sample account validates the trash tier and its poop avatar frame.",
-    scanned_at: PREVIEW_SCANNED_AT - 5,
-  },
-];
-
-const PREVIEW_HEAT: Record<string, number> = {
-  "demo-hot-legend": 58,
-  "demo-heat-runner": 612,
-  "demo-score-smith": 241,
-  "demo-fresh-star": 404,
-  "demo-npc-average": 133,
-  "demo-trash-fire": 36,
-};
-
-function previewEnabled(): boolean {
-  return process.env.NODE_ENV !== "production" && process.env.GHROAST_PREVIEW_DATA !== "0";
-}
-
-function toLeaderboardEntry(account: AccountDetail): LeaderboardEntry {
-  return {
-    username: account.username,
-    display_name: account.display_name,
-    avatar_url: account.avatar_url,
-    profile_url: account.profile_url,
-    final_score: account.final_score,
-    tier: account.tier,
-    tags: account.tags,
-    lookup_count: normalizeLookupCount(PREVIEW_HEAT[account.username]),
-  };
-}
-
-function previewLeaderboard(limit: number, minScore: number): LeaderboardEntry[] {
-  if (!previewEnabled()) return [];
-  return PREVIEW_ACCOUNTS.filter((account) => account.final_score >= minScore)
-    .map(toLeaderboardEntry)
-    .sort((a, b) => b.final_score - a.final_score || b.lookup_count - a.lookup_count)
-    .slice(0, limit);
-}
-
-function previewHeatLeaderboard(limit: number, minScore: number): LeaderboardEntry[] {
-  if (!previewEnabled()) return [];
-  return PREVIEW_ACCOUNTS.filter((account) => account.final_score >= minScore)
-    .map(toLeaderboardEntry)
-    .sort((a, b) => b.lookup_count - a.lookup_count || b.final_score - a.final_score)
-    .slice(0, limit);
-}
-
-function previewAccountDetail(username: string): AccountDetail | null {
-  if (!previewEnabled()) return null;
-  return (
-    PREVIEW_ACCOUNTS.find(
-      (account) => account.username.toLowerCase() === username.toLowerCase(),
-    ) ?? null
-  );
+  /** Previous recorded score — only set on the 进步榜 (progress) board. */
+  prev_score?: number;
+  /** final_score - prev_score — only set on the 进步榜 (progress) board. */
+  delta?: number;
 }
 
 /**
@@ -468,6 +275,10 @@ export async function recordScore(entry: ScoreEntry): Promise<void> {
               (username, display_name, avatar_url, profile_url, final_score, tier, tags, roast_line, bot_score, sub_scores, scanned_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(username) DO UPDATE SET
+              prev_score      = CASE WHEN excluded.scanned_at - scores.scanned_at >= ?
+                                     THEN scores.final_score ELSE scores.prev_score END,
+              prev_scanned_at = CASE WHEN excluded.scanned_at - scores.scanned_at >= ?
+                                     THEN scores.scanned_at ELSE scores.prev_scanned_at END,
               display_name = excluded.display_name,
               avatar_url   = excluded.avatar_url,
               profile_url  = excluded.profile_url,
@@ -490,6 +301,8 @@ export async function recordScore(entry: ScoreEntry): Promise<void> {
         entry.bot_score,
         JSON.stringify(entry.sub_scores),
         entry.scanned_at,
+        PROGRESS_MIN_GAP_MS,
+        PROGRESS_MIN_GAP_MS,
       ],
     });
     await db.execute({
@@ -531,14 +344,7 @@ export async function getPercentile(
   score: number,
 ): Promise<{ below: number; total: number } | null> {
   const db = getClient();
-  if (!db) {
-    const preview = previewLeaderboard(Number.MAX_SAFE_INTEGER, 0);
-    if (preview.length === 0) return null;
-    return {
-      below: preview.filter((entry) => entry.final_score < score).length,
-      total: preview.length,
-    };
-  }
+  if (!db) return null;
   try {
     await ensureSchema(db);
     const res = await db.execute({
@@ -548,24 +354,9 @@ export async function getPercentile(
       args: [score],
     });
     const row = res.rows[0];
-    if (!row) {
-      const preview = previewLeaderboard(Number.MAX_SAFE_INTEGER, 0);
-      return preview.length
-        ? {
-            below: preview.filter((entry) => entry.final_score < score).length,
-            total: preview.length,
-          }
-        : null;
-    }
+    if (!row) return null;
     const counts = { below: Number(row.below), total: Number(row.total) };
-    if (counts.total > 0) return counts;
-    const preview = previewLeaderboard(Number.MAX_SAFE_INTEGER, 0);
-    return preview.length
-      ? {
-          below: preview.filter((entry) => entry.final_score < score).length,
-          total: preview.length,
-        }
-      : counts;
+    return counts.total > 0 ? counts : null;
   } catch (e) {
     console.error("getPercentile failed:", e);
     return null;
@@ -575,17 +366,11 @@ export async function getPercentile(
 /** Total number of accounts ever evaluated (for the "N developers" counter). */
 export async function getScoreCount(): Promise<number | null> {
   const db = getClient();
-  if (!db) {
-    const preview = previewLeaderboard(Number.MAX_SAFE_INTEGER, 0);
-    return preview.length ? preview.length : null;
-  }
+  if (!db) return null;
   try {
     await ensureSchema(db);
     const res = await db.execute("SELECT COUNT(*) AS n FROM scores");
-    const count = Number(res.rows[0]?.n ?? 0);
-    if (count > 0) return count;
-    const preview = previewLeaderboard(Number.MAX_SAFE_INTEGER, 0);
-    return preview.length ? preview.length : count;
+    return Number(res.rows[0]?.n ?? 0);
   } catch (e) {
     console.error("getScoreCount failed:", e);
     return null;
@@ -598,7 +383,7 @@ export async function getLeaderboard(
   minScore = 60,
 ): Promise<LeaderboardEntry[]> {
   const db = getClient();
-  if (!db) return previewLeaderboard(limit, minScore);
+  if (!db) return [];
   try {
     await ensureSchema(db);
     const res = await db.execute({
@@ -612,7 +397,7 @@ export async function getLeaderboard(
             LIMIT ?`,
       args: [minScore, limit],
     });
-    const entries = res.rows.map((r) => ({
+    return res.rows.map((r) => ({
       username: String(r.username),
       display_name: r.display_name as string | null,
       avatar_url: r.avatar_url as string | null,
@@ -622,10 +407,9 @@ export async function getLeaderboard(
       tags: parseTags(r.tags),
       lookup_count: normalizeLookupCount(r.lookup_count),
     }));
-    return entries.length > 0 ? entries : previewLeaderboard(limit, minScore);
   } catch (e) {
     console.error("getLeaderboard failed:", e);
-    return previewLeaderboard(limit, minScore);
+    return [];
   }
 }
 
@@ -635,7 +419,7 @@ export async function getHeatLeaderboard(
   minScore = 60,
 ): Promise<LeaderboardEntry[]> {
   const db = getClient();
-  if (!db) return previewHeatLeaderboard(limit, minScore);
+  if (!db) return [];
   try {
     await ensureSchema(db);
     const res = await db.execute({
@@ -649,7 +433,7 @@ export async function getHeatLeaderboard(
             LIMIT ?`,
       args: [minScore, limit],
     });
-    const entries = res.rows.map((r) => ({
+    return res.rows.map((r) => ({
       username: String(r.username),
       display_name: r.display_name as string | null,
       avatar_url: r.avatar_url as string | null,
@@ -659,10 +443,51 @@ export async function getHeatLeaderboard(
       tags: parseTags(r.tags),
       lookup_count: normalizeLookupCount(r.lookup_count),
     }));
-    return entries.length > 0 ? entries : previewHeatLeaderboard(limit, minScore);
   } catch (e) {
     console.error("getHeatLeaderboard failed:", e);
-    return previewHeatLeaderboard(limit, minScore);
+    return [];
+  }
+}
+
+/** Public 进步榜 board: accounts whose latest score beats their previous one,
+ *  biggest gain first. No minScore floor — a 20→40 climb belongs here too. */
+export async function getProgressLeaderboard(limit = 100): Promise<LeaderboardEntry[]> {
+  const db = getClient();
+  if (!db) return [];
+  try {
+    await ensureSchema(db);
+    const res = await db.execute({
+      sql: `SELECT s.username, s.display_name, s.avatar_url, s.profile_url,
+                   s.final_score, s.tier, s.tags, s.prev_score,
+                   MAX(COALESCE(stats.lookup_count, 0), ${MIN_RECORDED_LOOKUP_COUNT}) AS lookup_count
+            FROM scores AS s
+            LEFT JOIN account_stats AS stats ON stats.username = s.username
+            WHERE s.hidden = 0
+              AND s.prev_score IS NOT NULL
+              AND s.final_score > s.prev_score
+            ORDER BY (s.final_score - s.prev_score) DESC, s.scanned_at DESC
+            LIMIT ?`,
+      args: [limit],
+    });
+    return res.rows.map((r) => {
+      const final_score = Number(r.final_score);
+      const prev_score = Number(r.prev_score);
+      return {
+        username: String(r.username),
+        display_name: r.display_name as string | null,
+        avatar_url: r.avatar_url as string | null,
+        profile_url: r.profile_url as string | null,
+        final_score,
+        tier: String(r.tier) as Tier,
+        tags: parseTags(r.tags),
+        lookup_count: normalizeLookupCount(r.lookup_count),
+        prev_score,
+        delta: final_score - prev_score,
+      };
+    });
+  } catch (e) {
+    console.error("getProgressLeaderboard failed:", e);
+    return [];
   }
 }
 
@@ -703,17 +528,7 @@ export interface ScoreBrief {
 /** Minimal score lookup for the SVG badge — avoids fetching the heavy roast text. */
 export async function getScoreBrief(username: string): Promise<ScoreBrief | null> {
   const db = getClient();
-  if (!db) {
-    const preview = previewAccountDetail(username);
-    return preview
-      ? {
-          username: preview.username,
-          display_name: preview.display_name,
-          final_score: preview.final_score,
-          tier: preview.tier,
-        }
-      : null;
-  }
+  if (!db) return null;
   try {
     await ensureSchema(db);
     const res = await db.execute({
@@ -724,17 +539,7 @@ export async function getScoreBrief(username: string): Promise<ScoreBrief | null
       args: [username.toLowerCase()],
     });
     const r = res.rows[0];
-    if (!r) {
-      const preview = previewAccountDetail(username);
-      return preview
-        ? {
-            username: preview.username,
-            display_name: preview.display_name,
-            final_score: preview.final_score,
-            tier: preview.tier,
-          }
-        : null;
-    }
+    if (!r) return null;
     return {
       username: String(r.username),
       display_name: r.display_name as string | null,
@@ -750,7 +555,7 @@ export async function getScoreBrief(username: string): Promise<ScoreBrief | null
 /** Full persisted record for one account's detail page (null if absent/hidden). */
 export async function getAccountDetail(username: string): Promise<AccountDetail | null> {
   const db = getClient();
-  if (!db) return previewAccountDetail(username);
+  if (!db) return null;
   try {
     await ensureSchema(db);
     const res = await db.execute({
@@ -762,7 +567,7 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
       args: [username.toLowerCase()],
     });
     const r = res.rows[0];
-    if (!r) return previewAccountDetail(username);
+    if (!r) return null;
     return {
       username: String(r.username),
       display_name: r.display_name as string | null,
@@ -779,7 +584,7 @@ export async function getAccountDetail(username: string): Promise<AccountDetail 
     };
   } catch (e) {
     console.error("getAccountDetail failed:", e);
-    return previewAccountDetail(username);
+    return null;
   }
 }
 
@@ -842,11 +647,7 @@ export async function getSimilarAccounts(
   limit = 6,
 ): Promise<LeaderboardEntry[]> {
   const db = getClient();
-  if (!db) {
-    return previewLeaderboard(Number.MAX_SAFE_INTEGER, 0)
-      .filter((entry) => entry.username.toLowerCase() !== username.toLowerCase())
-      .slice(0, limit);
-  }
+  if (!db) return [];
   try {
     await ensureSchema(db);
     const res = await db.execute({
@@ -888,15 +689,10 @@ export async function getSimilarAccounts(
       tags: e.tags,
       lookup_count: e.lookup_count,
     }));
-    if (ranked.length > 0) return ranked;
-    return previewLeaderboard(Number.MAX_SAFE_INTEGER, 0)
-      .filter((entry) => entry.username.toLowerCase() !== username.toLowerCase())
-      .slice(0, limit);
+    return ranked;
   } catch (e) {
     console.error("getSimilarAccounts failed:", e);
-    return previewLeaderboard(Number.MAX_SAFE_INTEGER, 0)
-      .filter((entry) => entry.username.toLowerCase() !== username.toLowerCase())
-      .slice(0, limit);
+    return [];
   }
 }
 

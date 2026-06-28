@@ -15,6 +15,8 @@ export interface LeaderboardClientEntry {
   tier: Tier;
   tags?: { zh: string[]; en: string[] };
   lookup_count: number;
+  prev_score?: number;
+  delta?: number;
 }
 
 export interface LeaderboardLabels {
@@ -25,9 +27,12 @@ export interface LeaderboardLabels {
   viewDetail: string;
   heatLabel: string;
   heatTitle: string;
+  progressLabel: string;
+  progressTitle: string;
+  progressEmpty: string;
 }
 
-export type LeaderboardView = "score" | "heat";
+export type LeaderboardView = "score" | "heat" | "progress";
 
 const RANK_BADGE = ["🥇", "🥈", "🥉"];
 const TAG_TONE: Record<TagLocale, string> = {
@@ -98,21 +103,29 @@ export function LeaderboardClient({
   pageSize,
   scoreEntries,
   heatEntries,
+  progressEntries = [],
 }: {
   initialView: LeaderboardView;
   labels: LeaderboardLabels;
   pageSize?: number;
   scoreEntries: LeaderboardClientEntry[];
   heatEntries: LeaderboardClientEntry[];
+  progressEntries?: LeaderboardClientEntry[];
 }) {
   const locale = useLocale();
   const tTier = useTranslations("tiers");
   const [page, setPage] = useState(0);
-  const entries = initialView === "heat" ? heatEntries : scoreEntries;
+  const entries =
+    initialView === "heat"
+      ? heatEntries
+      : initialView === "progress"
+        ? progressEntries
+        : scoreEntries;
   const tagLocale = tagLocaleFor(locale);
 
   if (entries.length === 0) {
-    return <p className="text-center text-zinc-500">{labels.empty}</p>;
+    const emptyMsg = initialView === "progress" ? labels.progressEmpty : labels.empty;
+    return <p className="text-center text-zinc-500">{emptyMsg}</p>;
   }
 
   const totalPages = pageSize ? Math.max(1, Math.ceil(entries.length / pageSize)) : 1;
@@ -129,6 +142,8 @@ export function LeaderboardClient({
           const tierName = tTier(`${TIER_KEY[e.tier]}.name`);
           const detailLabel = labels.viewDetail.replace("{username}", e.username);
           const heatSelected = initialView === "heat";
+          const progressSelected = initialView === "progress";
+          const delta = e.delta ?? e.final_score - (e.prev_score ?? e.final_score);
           const profileUrl = e.profile_url ?? `https://github.com/${encodeURIComponent(e.username)}`;
           return (
             <li
@@ -176,7 +191,29 @@ export function LeaderboardClient({
                   <TagRow labels={labels} locale={tagLocale} tags={e.tags} />
                 </div>
               </div>
-              {heatSelected ? (
+              {progressSelected ? (
+                <div className="grid w-28 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-0.5 text-right sm:w-36">
+                  <div
+                    className="truncate text-left text-xs font-medium text-emerald-300 sm:text-sm"
+                    title={labels.progressTitle}
+                  >
+                    📈 {labels.progressLabel}
+                  </div>
+                  <div
+                    className="text-lg font-black tabular-nums text-emerald-300"
+                    title={labels.progressTitle}
+                    aria-label={`${labels.progressLabel} +${delta.toFixed(2)}`}
+                  >
+                    +{delta.toFixed(2)}
+                  </div>
+                  <div className={`truncate text-left text-[11px] font-medium ${style.text}`}>
+                    {style.emoji} {tierName}
+                  </div>
+                  <div className={`text-sm font-black tabular-nums ${style.text}`}>
+                    {e.final_score.toFixed(2)}
+                  </div>
+                </div>
+              ) : heatSelected ? (
                 <div className="grid w-28 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-0.5 text-right sm:w-36">
                   <div
                     className="truncate text-left text-xs font-medium text-amber-300 sm:text-sm"

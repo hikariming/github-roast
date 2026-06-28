@@ -14,6 +14,7 @@ export interface HomeLeaderboardLabels {
   openBoard: string;
   scoreView: string;
   heatView: string;
+  progressView: string;
 }
 
 export function HomeLeaderboardClient({
@@ -22,15 +23,22 @@ export function HomeLeaderboardClient({
   leaderboardLabels,
   pageSize,
   scoreEntries,
+  progressEntries = [],
 }: {
   heatEntries: LeaderboardClientEntry[];
   labels: HomeLeaderboardLabels;
   leaderboardLabels: LeaderboardLabels;
   pageSize: number;
   scoreEntries: LeaderboardClientEntry[];
+  progressEntries?: LeaderboardClientEntry[];
 }) {
   const [view, setView] = useState<LeaderboardView>("score");
-  const fullBoardHref = view === "heat" ? "/leaderboard?view=heat" : "/leaderboard";
+  const fullBoardHref =
+    view === "heat"
+      ? "/leaderboard?view=heat"
+      : view === "progress"
+        ? "/leaderboard?view=progress"
+        : "/leaderboard";
 
   return (
     <section className="mt-16 w-full max-w-2xl">
@@ -57,6 +65,17 @@ export function HomeLeaderboardClient({
           >
             {labels.heatView}
           </button>
+          <span className="h-10 w-1 shrink-0 rotate-12 rounded-full bg-[rgb(255,105,0)] sm:h-12" />
+          <button
+            type="button"
+            onClick={() => setView("progress")}
+            className={`shrink-0 text-lg font-black leading-tight sm:text-xl ${
+              view === "progress" ? "text-zinc-100" : "text-zinc-500 hover:text-zinc-200"
+            }`}
+            aria-pressed={view === "progress"}
+          >
+            {labels.progressView}
+          </button>
         </div>
         <Link
           href={fullBoardHref}
@@ -72,6 +91,7 @@ export function HomeLeaderboardClient({
         pageSize={pageSize}
         scoreEntries={scoreEntries}
         heatEntries={heatEntries}
+        progressEntries={progressEntries}
       />
     </section>
   );

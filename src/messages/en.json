@@ -39,7 +39,7 @@
     "footerNote": "Only high-scoring accounts built from public GitHub data are listed. To remove yourself from the board, <a>request removal here</a>.",
     "loadError": "Couldn't load the board right now — try again later.",
     "loading": "Loading the Hall of Fame…",
-    "empty": "The Hall of Fame is empty — go scan the first 60+ legend from the home page.",
+    "empty": "🧮 Crunching the numbers — check back soon…",
     "prev": "← Prev",
     "next": "Next →",
     "collapse": "Collapse",
@@ -47,7 +47,12 @@
     "heatView": "🔥 Most Roasted",
     "heatLabel": "Heat",
     "heatTitle": "Successful roast count",
-    "viewDetail": "View @{username}'s score detail"
+    "viewDetail": "View @{username}'s score detail",
+    "progressView": "📈 Most Improved",
+    "progressLabel": "Gain",
+    "progressTitle": "Points gained since last scan",
+    "progressSubtitle": "Climb from your last scan to make the board.",
+    "progressEmpty": "🧮 Crunching the numbers — check back soon…"
   },
   "detail": {
     "back": "← Back to Hall of Fame",

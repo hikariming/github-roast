@@ -1,5 +1,5 @@
 import { getTranslations } from "next-intl/server";
-import { getHeatLeaderboard, getLeaderboard } from "@/lib/db";
+import { getHeatLeaderboard, getLeaderboard, getProgressLeaderboard } from "@/lib/db";
 import {
   LeaderboardClient,
   type LeaderboardLabels,
@@ -22,11 +22,15 @@ export async function Leaderboard({
     viewDetail: t("viewDetail", { username: "{username}" }),
     heatLabel: t("heatLabel"),
     heatTitle: t("heatTitle"),
+    progressLabel: t("progressLabel"),
+    progressTitle: t("progressTitle"),
+    progressEmpty: t("progressEmpty"),
   };
 
-  const [scoreEntries, heatEntries] = await Promise.all([
+  const [scoreEntries, heatEntries, progressEntries] = await Promise.all([
     initialView === "score" ? getLeaderboard(500) : Promise.resolve([]),
     initialView === "heat" ? getHeatLeaderboard(500) : Promise.resolve([]),
+    initialView === "progress" ? getProgressLeaderboard(500) : Promise.resolve([]),
   ]);
 
   return (
@@ -37,6 +41,7 @@ export async function Leaderboard({
       pageSize={pageSize}
       scoreEntries={scoreEntries}
       heatEntries={heatEntries}
+      progressEntries={progressEntries}
     />
   );
 }

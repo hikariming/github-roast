@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getHeatLeaderboard, getLeaderboard, type LeaderboardEntry } from "@/lib/db";
+import {
+  getHeatLeaderboard,
+  getLeaderboard,
+  getProgressLeaderboard,
+  type LeaderboardEntry,
+} from "@/lib/db";
 import {
   getCachedLeaderboard,
   setCachedLeaderboard,
@@ -17,7 +22,10 @@ const LIMIT = 500;
 const CDN_CACHE = "public, s-maxage=120, stale-while-revalidate=600";
 
 function leaderboardView(req: NextRequest): LeaderboardCacheView {
-  return req.nextUrl.searchParams.get("view") === "heat" ? "heat" : "score";
+  const view = req.nextUrl.searchParams.get("view");
+  if (view === "heat") return "heat";
+  if (view === "progress") return "progress";
+  return "score";
 }
 
 export async function GET(req: NextRequest) {
@@ -31,7 +39,11 @@ export async function GET(req: NextRequest) {
   }
 
   const entries: LeaderboardEntry[] =
-    view === "heat" ? await getHeatLeaderboard(LIMIT) : await getLeaderboard(LIMIT);
+    view === "heat"
+      ? await getHeatLeaderboard(LIMIT)
+      : view === "progress"
+        ? await getProgressLeaderboard(LIMIT)
+        : await getLeaderboard(LIMIT);
   await setCachedLeaderboard(entries, view);
   return NextResponse.json(
     { entries, cached: false, view },

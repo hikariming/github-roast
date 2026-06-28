@@ -39,7 +39,7 @@
     "footerNote": "仅收录基于 GitHub 公开数据的高分账号。如需将自己从榜单移除，<a>点此申请下榜</a>。",
     "loadError": "榜单暂时加载不出来，稍后再试。",
     "loading": "加载名人堂…",
-    "empty": "名人堂还空着 —— 去首页扫出第一个 60 分以上的高手吧。",
+    "empty": "🧮 正在计算中，稍后再来看看…",
     "prev": "← 上一页",
     "next": "下一页 →",
     "collapse": "收起",
@@ -47,7 +47,12 @@
     "heatView": "🔥 热度榜",
     "heatLabel": "热度",
     "heatTitle": "被成功查询的次数",
-    "viewDetail": "查看 @{username} 的评分详情"
+    "viewDetail": "查看 @{username} 的评分详情",
+    "progressView": "📈 进步榜",
+    "progressLabel": "进步",
+    "progressTitle": "相比上次扫描的涨分",
+    "progressSubtitle": "比上次扫描涨分即可上榜。",
+    "progressEmpty": "🧮 正在计算中，稍后再来看看…"
   },
   "detail": {
     "back": "← 返回名人堂",

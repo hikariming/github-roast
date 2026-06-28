@@ -32,11 +32,14 @@ export default async function LeaderboardPage({
 }) {
   const { locale } = await params;
   const query = await searchParams;
-  const view: LeaderboardView = query?.view === "heat" ? "heat" : "score";
+  const view: LeaderboardView =
+    query?.view === "heat" ? "heat" : query?.view === "progress" ? "progress" : "score";
   await connection();
   setRequestLocale(locale);
   const t = await getTranslations("leaderboard");
-  const pageTitle = view === "heat" ? t("heatView") : t("heading");
+  const pageTitle =
+    view === "heat" ? t("heatView") : view === "progress" ? t("progressView") : t("heading");
+  const subtitle = view === "progress" ? t("progressSubtitle") : t("subtitle");
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-5 py-14 sm:py-20">
@@ -67,6 +70,16 @@ export default async function LeaderboardPage({
               >
                 {t("heatView")}
               </Link>
+              <Link
+                href="/leaderboard?view=progress"
+                className={`rounded-full px-3 py-1.5 transition-colors ${
+                  view === "progress"
+                    ? "bg-white/10 text-zinc-100"
+                    : "text-zinc-500 hover:text-zinc-200"
+                }`}
+              >
+                {t("progressView")}
+              </Link>
             </div>
           </div>
           <Link
@@ -76,7 +89,7 @@ export default async function LeaderboardPage({
             {t("judgeCta")}
           </Link>
         </div>
-        <p className="mt-2 text-zinc-400">{t("subtitle")}</p>
+        <p className="mt-2 text-zinc-400">{subtitle}</p>
       </header>
 
       <Leaderboard pageSize={20} initialView={view} />
