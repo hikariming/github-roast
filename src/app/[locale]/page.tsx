@@ -40,39 +40,15 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
       </Link>
 
       <header className="mb-10 flex flex-col items-center text-center">
-        <div className="mb-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs text-zinc-400">
-          <span>{t("authorIntro")}</span>
-          <a
-            href="https://github.com/hikariming"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-zinc-300 hover:bg-white/10"
-          >
-            GitHub
-          </a>
-          <a
-            href="https://www.xiaohongshu.com/user/profile/63d3f4cc00000000260105e2"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-rose-300 hover:bg-white/10"
-          >
-            小红书
-          </a>
-          <a
-            href="https://x.com/owmio39659"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-zinc-200 hover:bg-white/10"
-          >
-            X
-          </a>
-        </div>
         <h1 className="text-4xl font-black tracking-tight sm:text-5xl">
           {t("titleBefore")} <span className="text-orange-500">GitHub</span> {t("titleAfter")}
         </h1>
+        <p className="mt-2 text-base font-semibold tracking-wide text-zinc-300 sm:text-lg">
+          {t("subtitle")}
+        </p>
         <a
           href="https://githubroast.dev"
-          className="mt-2 text-base font-bold tracking-wide text-orange-400 hover:text-orange-300"
+          className="mt-2 text-sm font-bold tracking-wide text-orange-400 hover:text-orange-300"
         >
           githubroast.dev
         </a>

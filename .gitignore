@@ -37,6 +37,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# private planning / internal docs (do not open-source)
+/planning
+
 # local libSQL / Turso dev databases
 *.db
 *.db-journal

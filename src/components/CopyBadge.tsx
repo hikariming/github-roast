@@ -38,7 +38,23 @@ function SnippetRow({
   );
 }
 
-export function CopyBadge({ baseUrl, username }: { baseUrl: string; username: string }) {
+export function CopyBadge({
+  baseUrl,
+  username,
+  version,
+}: {
+  baseUrl: string;
+  username: string;
+  /**
+   * Cache-buster for the on-page previews. The card/badge images are served with
+   * a long CDN cache (README/camo views stay cheap), so without this the preview
+   * shown right after a re-score would keep displaying the stale PNG. Keying it on
+   * the current score forces a fresh fetch so the on-page card updates in real
+   * time. The copyable README snippets intentionally stay clean (no `?v`) — those
+   * embeds refresh via the CDN window, which is acceptable off-site.
+   */
+  version?: string | number;
+}) {
   const T = useTranslations("badge");
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -46,6 +62,12 @@ export function CopyBadge({ baseUrl, username }: { baseUrl: string; username: st
   const pageUrl = `${base}/u/${username}`;
   const badgeUrl = `${base}/api/badge/${username}`;
   const cardUrl = `${base}/api/card/${username}`;
+  const v =
+    version !== undefined && version !== null
+      ? `?v=${encodeURIComponent(String(version))}`
+      : "";
+  const badgePreview = `${badgeUrl}${v}`;
+  const cardPreview = `${cardUrl}${v}`;
 
   const badgeAlt = T("badgeAlt");
   const cardAlt = T("cardAlt");
@@ -75,7 +97,7 @@ export function CopyBadge({ baseUrl, username }: { baseUrl: string; username: st
       <div className="mt-5">
         <div className="mb-2 text-xs font-semibold text-zinc-300">{T("badgeTitle")}</div>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={badgeUrl} alt={badgeAlt} className="h-5" />
+        <img src={badgePreview} alt={badgeAlt} className="h-5" />
         <div className="mt-3 flex flex-col gap-3">
           <SnippetRow
             label={T("markdown")}
@@ -101,7 +123,7 @@ export function CopyBadge({ baseUrl, username }: { baseUrl: string; username: st
         <div className="mb-2 text-xs font-semibold text-zinc-300">{T("cardTitle")}</div>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={cardUrl}
+          src={cardPreview}
           alt={cardAlt}
           className="w-full max-w-md rounded-xl border border-white/10"
         />

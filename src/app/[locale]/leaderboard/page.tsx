@@ -3,6 +3,8 @@ import { connection } from "next/server";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { Leaderboard } from "@/components/Leaderboard";
+import { JsonLd, leaderboardJsonLd } from "@/components/JsonLd";
+import { getLeaderboard } from "@/lib/db";
 import type { LeaderboardView } from "@/components/LeaderboardClient";
 
 export const dynamic = "force-dynamic";
@@ -60,8 +62,23 @@ export default async function LeaderboardPage({
           ? t("progressSubtitle")
           : t("trendSubtitle");
 
+  // Structured data only for the canonical score ranking — the directory's main
+  // "top developers" list. Heat/progress are sort variants behind query params,
+  // so emitting one ItemList keeps the markup unambiguous for crawlers.
+  const rankingEntries = view === "score" ? await getLeaderboard(50) : [];
+
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col px-5 py-14 sm:py-20">
+      {rankingEntries.length > 0 && (
+        <JsonLd
+          data={leaderboardJsonLd({
+            name: t("heading"),
+            description: t("subtitle"),
+            locale,
+            entries: rankingEntries,
+          })}
+        />
+      )}
       <header className="mb-8">
         <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">

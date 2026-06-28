@@ -23,6 +23,7 @@ export async function Leaderboard({
     empty: t("empty"),
     prev: t("prev"),
     next: t("next"),
+    pageJumpLabel: t("pageJumpLabel"),
     collapse: t("collapse"),
     viewDetail: t("viewDetail", { username: "{username}" }),
     trendLabel: t("trendLabel"),

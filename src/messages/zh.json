@@ -1,11 +1,18 @@
 {
   "meta": {
-    "title": "毒舌 GitHub 评分 · githubroast.dev",
-    "description": "输入 GitHub 账号，30 秒得到一份 0-100 分的价值与信任评分，外加一句扎心的毒舌点评。专治刷量号、AI 机器人、收藏夹开发者。githubroast.dev",
-    "ogTitle": "毒舌 GitHub 评分 · githubroast.dev",
-    "ogDescription": "输入 GitHub 账号，30 秒得到 0-100 分的价值与信任评分 + 一句扎心毒舌点评。来测测你的含金量。",
-    "twDescription": "输入 GitHub 账号，30 秒出分 + 毒舌点评。来测测你的含金量。",
+    "title": "毒舌 GitHub | 开发者评分 · 发现最佳开发者",
+    "description": "输入 GitHub 账号，30 秒得到一份 0-100 分的价值与信任评分和一句扎心毒舌点评；再逛逛名人堂榜单，发现最值得关注的优质开发者。专治刷量号、AI 机器人、收藏夹开发者。githubroast.dev",
+    "ogTitle": "毒舌 GitHub | 开发者评分 · 发现最佳开发者",
+    "ogDescription": "给 GitHub 账号打分，发现最佳开发者。30 秒出 0-100 分含金量评分 + 一句毒舌点评，还能逛开发者排行榜。",
+    "twDescription": "30 秒给 GitHub 账号打分 + 毒舌点评，还能逛榜单发现最佳开发者。",
     "siteName": "毒舌 GitHub 评分"
+  },
+  "nav": {
+    "brand": "毒舌 GitHub",
+    "roast": "锐评",
+    "leaderboard": "榜单",
+    "openMenu": "打开菜单",
+    "closeMenu": "关闭菜单"
   },
   "header": {
     "signIn": "用 GitHub 登录",
@@ -21,12 +28,12 @@
     "title": "源码与评分算法均开源 · 在 GitHub 查看"
   },
   "home": {
-    "leaderboardPill": "名人堂排行榜",
-    "leaderboardPillTag": "看谁最强",
-    "authorIntro": "作者 hikariming，欢迎关注 👉",
+    "leaderboardPill": "名人堂",
+    "leaderboardPillTag": "发现最强开发者",
     "titleBefore": "毒舌",
     "titleAfter": "评分",
-    "tagline": "输入一个 GitHub 账号，得到 0–100 分的价值与信任评分，外加一句扎心又有梗的毒舌点评。",
+    "subtitle": "给自己打分 · 发现最佳开发者",
+    "tagline": "输入 GitHub 账号，30 秒得到 0–100 分的价值与信任评分和一句扎心毒舌点评；再逛逛名人堂，发现最值得关注的优质开发者。",
     "boardHeading": "🏆 名人堂",
     "openBoard": "打开完整榜单 →",
     "disclaimer1": "本站仅基于 GitHub <b>公开数据</b>自动生成评分与点评，吐槽的是账号的公开行为与数据，非针对个人。结果不构成对任何人的事实认定，请勿用于骚扰。",
@@ -42,6 +49,7 @@
     "empty": "🧮 正在计算中，稍后再来看看…",
     "prev": "← 上一页",
     "next": "下一页 →",
+    "pageJumpLabel": "跳转到页码",
     "collapse": "收起",
     "trendView": "🚀 趋势榜",
     "scoreView": "💯 评分榜",

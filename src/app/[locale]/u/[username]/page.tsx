@@ -6,14 +6,14 @@ import remarkGfm from "remark-gfm";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { getAccountDetail, getSimilarAccounts } from "@/lib/db";
+import { JsonLd, profileJsonLd } from "@/components/JsonLd";
+import { SITE_URL, PUBLIC_INDEX_MIN_SCORE } from "@/lib/site";
 import { CopyBadge } from "@/components/CopyBadge";
 import { TierAvatarFrame } from "@/components/TierAvatarFrame";
 import { SUBSCORE_MAX } from "@/lib/score";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
 import { normLang } from "@/lib/lang";
 import type { SubScoreKey } from "@/lib/types";
-
-const SITE_URL = process.env.PUBLIC_SITE_URL || "https://githubroast.dev";
 
 // Re-render at most hourly; on-demand pages are then served from the cache, so a
 // viral account doesn't hammer the DB or rack up function time on every view.
@@ -62,9 +62,14 @@ export async function generateMetadata({
   // metadataBase in layout.tsx) — so shared /u links render a rich card.
   const image = `/api/card/${d.username}`;
   const path = locale === "en" ? `/en/u/${d.username}` : `/u/${d.username}`;
+  // Keep low-score profiles out of search results: they name real people, so a
+  // "NPC"/"拉完了" page shouldn't rank on someone's handle. Still reachable and
+  // shareable — just not indexed. Mirrors the sitemap floor.
+  const indexable = d.final_score >= PUBLIC_INDEX_MIN_SCORE;
   return {
     title,
     description,
+    robots: indexable ? undefined : { index: false, follow: true },
     alternates: {
       languages: { "zh-CN": `/u/${d.username}`, en: `/en/u/${d.username}` },
     },
@@ -106,6 +111,16 @@ export default async function AccountPage({
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-5 py-14 sm:py-20">
+      <JsonLd
+        data={profileJsonLd({
+          username: d.username,
+          displayName: d.display_name,
+          avatarUrl: d.avatar_url,
+          profileUrl: d.profile_url,
+          score: d.final_score,
+          locale,
+        })}
+      />
       <Link href="/leaderboard" className="text-sm text-zinc-400 hover:text-zinc-200">
         {t("back")}
       </Link>
@@ -259,7 +274,7 @@ export default async function AccountPage({
       </section>
 
       <div className="mt-6">
-        <CopyBadge baseUrl={SITE_URL} username={d.username} />
+        <CopyBadge baseUrl={SITE_URL} username={d.username} version={d.scanned_at} />
       </div>
 
       <footer className="mt-10 text-center">

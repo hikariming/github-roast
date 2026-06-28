@@ -467,6 +467,39 @@ export async function getTrendingLeaderboard(
   }
 }
 
+/** One indexable profile: its canonical slug + when it was last scored. */
+export interface PublicProfile {
+  username: string;
+  scanned_at: number;
+}
+
+/**
+ * All profiles eligible for the sitemap: non-hidden and scoring at/above the
+ * public index floor. Ordered by score so the highest-value pages lead. Used by
+ * `app/sitemap.ts`; returns [] when Turso is unconfigured.
+ */
+export async function getAllPublicUsernames(minScore = 60): Promise<PublicProfile[]> {
+  const db = getClient();
+  if (!db) return [];
+  try {
+    await ensureSchema(db);
+    const res = await db.execute({
+      sql: `SELECT username, scanned_at
+            FROM scores
+            WHERE hidden = 0 AND final_score >= ?
+            ORDER BY final_score DESC`,
+      args: [minScore],
+    });
+    return res.rows.map((r) => ({
+      username: String(r.username),
+      scanned_at: Number(r.scanned_at),
+    }));
+  } catch (e) {
+    console.error("getAllPublicUsernames failed:", e);
+    return [];
+  }
+}
+
 /** Top high-scoring accounts for the public 名人堂 board (excludes hidden). */
 export async function getLeaderboard(
   limit = 100,

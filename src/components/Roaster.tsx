@@ -443,7 +443,11 @@ export function Roaster() {
           {/* Badge snippet — appears once the roast finishes (score is recorded). */}
           {!roasting && (
             <div ref={badgeRef} className="mt-6 scroll-mt-6">
-              <CopyBadge baseUrl={SITE_URL} username={scan.metrics.username} />
+              <CopyBadge
+                baseUrl={SITE_URL}
+                username={scan.metrics.username}
+                version={display.score}
+              />
             </div>
           )}
 
