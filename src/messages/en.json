@@ -7,6 +7,12 @@
     "twDescription": "Score any GitHub dev + discover the best on the leaderboard. 0-100 score & savage roast in 30s.",
     "siteName": "Savage GitHub Roast"
   },
+  "nav": {
+    "brand": "GitHub Roast",
+    "leaderboard": "Leaderboard",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu"
+  },
   "header": {
     "signIn": "Sign in with GitHub",
     "signOut": "Sign out"

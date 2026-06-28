@@ -7,6 +7,12 @@
     "twDescription": "30 秒给 GitHub 账号打分 + 毒舌点评，还能逛榜单发现最佳开发者。",
     "siteName": "毒舌 GitHub 评分"
   },
+  "nav": {
+    "brand": "毒舌 GitHub",
+    "leaderboard": "榜单",
+    "openMenu": "打开菜单",
+    "closeMenu": "关闭菜单"
+  },
   "header": {
     "signIn": "用 GitHub 登录",
     "signOut": "登出"
