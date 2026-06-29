@@ -16,6 +16,12 @@ export interface TopRepo {
   description: string | null;
   pushed_at: string | null;
   readme_excerpt?: string | null;
+  /** GitHub repo topics (official domain labels). Optional — empty when the
+   * REST payload omits them or for scans cached before this field existed. */
+  topics?: string[];
+  /** Per-language byte breakdown for the repo (e.g. Python 70% + Cuda 20%),
+   * a finer domain signal than the single primary `language`. Top repos only. */
+  languages?: { name: string; size: number }[];
 }
 
 export interface RecentPr {
@@ -146,6 +152,12 @@ export interface ScanResult {
   impact_repos?: ImpactRepo[];
   /** Verified popular-repo PR samples with file paths, for LLM qualitative review. */
   verified_impact_prs?: RecentPr[];
+  /** "owner/name" of the user's pinned repos — their self-selected best work, a
+   * strong signal of the direction they identify with. Optional for back-compat. */
+  pinned_repos?: string[];
+  /** Organizations the user belongs to (e.g. huggingface, pytorch) — high-signal
+   * for circle/affiliation. Optional for back-compat. */
+  organizations?: string[];
   scoring: Scoring;
 }
 

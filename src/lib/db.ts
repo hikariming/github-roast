@@ -37,7 +37,7 @@ import {
 import type { Lang } from "./lang";
 import type { PaperDims, PaperMode, PaperTierKey } from "./paper-types";
 import { rankSimilar } from "./similarity";
-import type { RoastLine, SubScores, Tags, Tier } from "./types";
+import type { RoastLine, ScanResult, SubScores, Tags, Tier } from "./types";
 
 const EMPTY_TAGS: Tags = { zh: [], en: [] };
 const HEAT_LOOKUP_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -174,6 +174,27 @@ function ensureSchema(db: Client): Promise<void> {
            )`,
           `CREATE INDEX IF NOT EXISTS idx_score_snapshots_username_generated
              ON score_snapshots(username, generated_at DESC)`,
+          // Raw developer-profile snapshots — the data moat. The full scan
+          // (repos w/ topics + language breakdown, contributed repos, metrics,
+          // pinned, orgs) is otherwise only cached in Redis for 24h. This is a
+          // slow-path archive, decoupled from the leaderboard hot-path `scores`
+          // table, so domain classification can be (re)derived later without
+          // re-crawling GitHub. JSON columns: cheap to write, denormalized into
+          // a developer⟷repo graph in a later phase if needed.
+          `CREATE TABLE IF NOT EXISTS profile_snapshots (
+             id            TEXT PRIMARY KEY,
+             username      TEXT NOT NULL,
+             scanned_at    INTEGER NOT NULL,
+             top_repos     TEXT,
+             impact_repos  TEXT,
+             verified_prs  TEXT,
+             metrics       TEXT,
+             pinned_repos  TEXT,
+             organizations TEXT,
+             scan_version  TEXT
+           )`,
+          `CREATE INDEX IF NOT EXISTS idx_profile_snapshots_username_scanned
+             ON profile_snapshots(username, scanned_at DESC)`,
           `CREATE TABLE IF NOT EXISTS account_stats (
              username        TEXT PRIMARY KEY,
              lookup_count    INTEGER NOT NULL DEFAULT 0,
@@ -432,6 +453,63 @@ export async function recordScore(entry: ScoreEntry): Promise<void> {
     });
   } catch (e) {
     console.error("recordScore failed:", e);
+  }
+}
+
+/**
+ * Persist a raw developer-profile snapshot — the data moat. Stores the full scan
+ * (repos with topics + language breakdown, contributed repos, verified-impact PRs
+ * with file paths, the complete metrics blob, pinned repos, orgs) that otherwise
+ * lives only in the 24h Redis cache. Append-only: one row per scan, so the
+ * profile history is preserved for later domain classification / analysis.
+ *
+ * Fire-and-forget: any failure is logged and swallowed so it never blocks the
+ * scoring/roast flow (mirrors {@link recordScore} / {@link updateRoast}).
+ */
+export async function recordProfileSnapshot(scan: ScanResult): Promise<void> {
+  const db = getClient();
+  if (!db) return;
+  try {
+    await ensureSchema(db);
+    const username = scan.metrics.username.toLowerCase();
+    await db.execute({
+      sql: `INSERT INTO profile_snapshots
+              (id, username, scanned_at, top_repos, impact_repos, verified_prs,
+               metrics, pinned_repos, organizations, scan_version)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [
+        randomUUID(),
+        username,
+        Date.now(),
+        JSON.stringify(scan.top_repos ?? []),
+        JSON.stringify(scan.impact_repos ?? []),
+        JSON.stringify(scan.verified_impact_prs ?? []),
+        JSON.stringify(scan.metrics),
+        JSON.stringify(scan.pinned_repos ?? []),
+        JSON.stringify(scan.organizations ?? []),
+        SCORE_CACHE_VERSION,
+      ],
+    });
+  } catch (e) {
+    console.error("recordProfileSnapshot failed:", e);
+  }
+}
+
+/** True if any profile snapshot already exists for this account — lets the
+ * head-user backfill skip accounts it has already sedimented (resumable). */
+export async function hasProfileSnapshot(username: string): Promise<boolean> {
+  const db = getClient();
+  if (!db) return false;
+  try {
+    await ensureSchema(db);
+    const res = await db.execute({
+      sql: `SELECT 1 FROM profile_snapshots WHERE username = ? LIMIT 1`,
+      args: [username.toLowerCase()],
+    });
+    return res.rows.length > 0;
+  } catch (e) {
+    console.error("hasProfileSnapshot failed:", e);
+    return false;
   }
 }
 

@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   getArchivedRoast: vi.fn(),
   getPercentile: vi.fn(),
   recordScore: vi.fn(),
+  recordProfileSnapshot: vi.fn(),
   updateRoast: vi.fn(),
   chatStream: vi.fn(),
   defaultLlmConfig: vi.fn(),
@@ -22,6 +23,7 @@ vi.mock("@/lib/db", () => ({
   getArchivedRoast: mocks.getArchivedRoast,
   getPercentile: mocks.getPercentile,
   recordScore: mocks.recordScore,
+  recordProfileSnapshot: mocks.recordProfileSnapshot,
   updateRoast: mocks.updateRoast,
 }));
 
@@ -189,6 +191,7 @@ beforeEach(() => {
   mocks.waitForCachedRoast.mockResolvedValue(null);
   mocks.getPercentile.mockResolvedValue({ below: 5, total: 10 });
   mocks.recordScore.mockResolvedValue(undefined);
+  mocks.recordProfileSnapshot.mockResolvedValue(undefined);
   mocks.updateRoast.mockResolvedValue(undefined);
   mocks.setCachedRoast.mockResolvedValue(undefined);
   mocks.releaseRoastLock.mockResolvedValue(undefined);

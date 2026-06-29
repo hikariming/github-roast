@@ -40,6 +40,9 @@ interface RestRepo {
   language: string | null;
   description: string | null;
   pushed_at: string | null;
+  // Topics are returned by default on the modern REST repos endpoint; absent on
+  // older proxies, so optional. A high-signal official domain label.
+  topics?: string[];
 }
 
 interface RestUser {
@@ -219,6 +222,23 @@ async function fetchReadmeExcerpt(
   } catch {
     return null;
   }
+}
+
+/** Per-language byte breakdown for one repo (e.g. {Python: 12000, Cuda: 4000}),
+ * mapped to a sorted {name,size}[] (largest first). Fetched only for top repos —
+ * one REST call each, mirroring the README excerpt cap. Returns [] on any error
+ * (404 / rate-limit are swallowed like fetchReadmeExcerpt). */
+async function fetchRepoLanguages(
+  owner: string,
+  repo: string,
+): Promise<{ name: string; size: number }[]> {
+  const data = await restGet<Record<string, number>>(
+    `repos/${owner}/${repo}/languages`,
+  ).catch(() => null);
+  if (!data) return [];
+  return Object.entries(data)
+    .map(([name, size]) => ({ name, size: size ?? 0 }))
+    .sort((a, b) => b.size - a.size);
 }
 
 interface PrNode {
@@ -720,6 +740,8 @@ export async function collect(username: string): Promise<{
   flood_pr_titles: string[];
   impact_repos: ImpactRepo[];
   verified_impact_prs: RecentPr[];
+  pinned_repos: string[];
+  organizations: string[];
 }> {
   if (!process.env.GITHUB_TOKEN) {
     throw new GitHubAuthRequiredError("GITHUB_TOKEN is required for accurate scoring.");
@@ -775,10 +797,16 @@ export async function collect(username: string): Promise<{
         contributionCalendar: { totalContributions: number };
       };
       contributionYears: { contributionYears: number[] };
+      pinnedItems: { nodes: ({ nameWithOwner?: string } | null)[] };
+      organizations: { nodes: ({ login?: string } | null)[] };
     } | null;
   }>(
     `query($login: String!) {
       user(login: $login) {
+        pinnedItems(first: 6, types: REPOSITORY) {
+          nodes { ... on Repository { nameWithOwner } }
+        }
+        organizations(first: 20) { nodes { login } }
         mergedPRs: pullRequests(states: MERGED) { totalCount }
         allPRs: pullRequests { totalCount }
         closedPRs: pullRequests(states: CLOSED, first: 100, orderBy: {field: CREATED_AT, direction: DESC}) {
@@ -811,6 +839,12 @@ export async function collect(username: string): Promise<{
   );
   const cc = contrib?.user?.contributionsCollection;
   const contributionYears = contrib?.user?.contributionYears?.contributionYears ?? [];
+  const pinnedRepos = (contrib?.user?.pinnedItems?.nodes ?? [])
+    .map((n) => n?.nameWithOwner)
+    .filter((s): s is string => typeof s === "string");
+  const organizations = (contrib?.user?.organizations?.nodes ?? [])
+    .map((n) => n?.login)
+    .filter((s): s is string => typeof s === "string");
   const mergedPrCount = contrib?.user?.mergedPRs?.totalCount ?? 0;
   const totalPrCount = contrib?.user?.allPRs?.totalCount ?? 0;
   const closedPrBreakdown = computeClosedPrBreakdown(
@@ -863,15 +897,22 @@ export async function collect(username: string): Promise<{
       language: r.language,
       description: r.description,
       pushed_at: r.pushed_at,
+      topics: r.topics ?? [],
     }))
     .sort((a, b) => b.stars - a.stars)
     .slice(0, 10);
 
-  // README excerpts for the top original repos (capped to limit API calls)
+  // README excerpts + language breakdown for the top original repos (capped to
+  // limit API calls — same top-6 budget as the README fetch).
   await Promise.all(
     topRepos.slice(0, 6).map(async (repo) => {
       if (repo.stars > 0 || repo.name) {
-        repo.readme_excerpt = await fetchReadmeExcerpt(login, repo.name);
+        const [readme, languages] = await Promise.all([
+          fetchReadmeExcerpt(login, repo.name),
+          fetchRepoLanguages(login, repo.name),
+        ]);
+        repo.readme_excerpt = readme;
+        repo.languages = languages;
       }
     }),
   );
@@ -1022,5 +1063,7 @@ export async function collect(username: string): Promise<{
     flood_pr_titles: flood.flood_pr_titles,
     impact_repos: impact.impact_repos,
     verified_impact_prs: verifiedImpactPrs,
+    pinned_repos: pinnedRepos,
+    organizations,
   };
 }

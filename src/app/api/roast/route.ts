@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { TIER_EN, TIER_LABEL_EN } from "@/lib/badge";
-import { getArchivedRoast, getPercentile, recordScore, updateRoast } from "@/lib/db";
+import { getArchivedRoast, getPercentile, recordProfileSnapshot, recordScore, updateRoast } from "@/lib/db";
 import { Lang, normLang } from "@/lib/lang";
 import { LlmConfig, LlmQuotaError, chatStream, defaultLlmConfig } from "@/lib/llm";
 import { beatPercent } from "@/lib/percentile";
@@ -258,6 +258,9 @@ async function computeMeta(
       sub_scores: scan.scoring.sub_scores,
       scanned_at: Date.now(),
     });
+    // Sediment the raw developer profile (the data moat) alongside the score.
+    // Fire-and-forget inside recordProfileSnapshot; never blocks the roast.
+    await recordProfileSnapshot(scan);
   }
   const percentile = await percentileFor(summary.final_score);
   return { ...summary, percentile, tags, roast_line: roastLine };
