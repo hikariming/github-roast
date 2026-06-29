@@ -5,6 +5,7 @@ import { NavLinks } from "./NavLinks";
 import { NavAuth } from "./NavAuth";
 import { MobileMenu } from "./MobileMenu";
 import { LanguageSwitcher } from "./LanguageSwitcher";
+import { ThemeToggle } from "./ThemeToggle";
 
 /**
  * Site-wide navigation bar. Server component that composes client islands
@@ -56,6 +57,7 @@ export async function Navbar() {
         <div className="ml-auto flex items-center gap-2">
           <div className="hidden items-center gap-2 sm:flex">
             <NavAuth />
+            <ThemeToggle />
             <LanguageSwitcher />
             {repoLink}
           </div>

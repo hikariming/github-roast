@@ -86,6 +86,12 @@
     "zh": "中文",
     "en": "EN"
   },
+  "themeSwitch": {
+    "label": "Switch theme",
+    "light": "Light theme",
+    "dark": "Dark theme",
+    "auto": "Use system theme"
+  },
   "repoLink": {
     "label": "Source",
     "title": "Source code & scoring algorithm are open source · View on GitHub"

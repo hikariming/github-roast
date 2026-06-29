@@ -325,7 +325,7 @@ export function Roaster() {
       {scan && display && style && (
         <div ref={reportRef} className="mt-10">
           <div
-            className={`animate-pop mx-auto flex max-w-md flex-col items-center rounded-2xl border bg-white/[0.03] p-6 text-center ring-1 ${style.ring}`}
+            className={`animate-pop mx-auto flex max-w-md flex-col items-center rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-center ring-1 ${style.ring}`}
             style={{ boxShadow: `0 0 80px -20px ${style.glow}` }}
           >
             <a

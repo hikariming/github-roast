@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { NAV_ITEMS } from "@/config/nav";
 import { NavLinks } from "./NavLinks";
 import { LanguageSwitcher } from "./LanguageSwitcher";
+import { ThemeToggle } from "./ThemeToggle";
 
 /**
  * Mobile hamburger + drawer (sm:hidden). Owns the open/close state.
@@ -67,7 +68,10 @@ export function MobileMenu({
           <NavLinks items={NAV_ITEMS} orientation="vertical" onNavigate={close} />
           <div className="border-t border-white/10 pt-4">{auth}</div>
           <div className="flex items-center justify-between">
-            <LanguageSwitcher />
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <LanguageSwitcher />
+            </div>
             {repoLink}
           </div>
         </div>

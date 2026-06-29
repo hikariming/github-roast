@@ -206,7 +206,7 @@ export function PaperRoaster({ initialInput = "" }: { initialInput?: string }) {
         <div className="mt-8">
           {/* Score card */}
           <div
-            className={`animate-pop flex flex-col items-center rounded-2xl border bg-white/[0.03] p-6 text-center ring-1 ${style?.ring ?? "ring-white/10"}`}
+            className={`animate-pop flex flex-col items-center rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-center ring-1 ${style?.ring ?? "ring-white/10"}`}
             style={style ? { boxShadow: `0 0 80px -20px ${style.glow}` } : undefined}
           >
             <a

@@ -3,6 +3,24 @@
 :root {
   --background: #0a0a0b;
   --foreground: #ededed;
+  --surface: rgba(255, 255, 255, 0.04);
+  --surface-strong: #18181b;
+  --surface-muted: rgba(255, 255, 255, 0.08);
+  --border: rgba(255, 255, 255, 0.12);
+  --border-soft: rgba(255, 255, 255, 0.08);
+  color-scheme: dark;
+}
+
+html[data-theme="light"] {
+  --background: #f6f8fb;
+  --foreground: #18181b;
+  --surface: rgba(255, 255, 255, 0.82);
+  --surface-strong: #ffffff;
+  --surface-muted: rgba(15, 23, 42, 0.06);
+  --border: rgba(15, 23, 42, 0.13);
+  --border-soft: rgba(15, 23, 42, 0.08);
+  color-scheme: light;
+  background: var(--background);
 }
 
 @theme inline {
@@ -17,6 +35,194 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, "PingFang SC", "Microsoft YaHei",
     sans-serif;
+}
+
+html[data-theme="light"] body {
+  background: linear-gradient(180deg, #fbfdff 0%, var(--background) 24rem);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+
+html[data-theme="light"] .bg-zinc-950,
+html[data-theme="light"] .bg-zinc-950\/60,
+html[data-theme="light"] .bg-zinc-950\/80,
+html[data-theme="light"] .bg-zinc-950\/95 {
+  background-color: rgba(255, 255, 255, 0.88);
+}
+
+html[data-theme="light"] .bg-zinc-900 {
+  background-color: var(--surface-strong);
+}
+
+html[data-theme="light"] .bg-black\/70 {
+  background-color: rgba(15, 23, 42, 0.42);
+}
+
+html[data-theme="light"] .bg-black\/40,
+html[data-theme="light"] .bg-black\/35,
+html[data-theme="light"] .bg-black\/30,
+html[data-theme="light"] .bg-black\/10 {
+  background-color: rgba(255, 255, 255, 0.72);
+}
+
+html[data-theme="light"] .bg-white\/5,
+html[data-theme="light"] .bg-white\/\[0\.02\],
+html[data-theme="light"] .bg-white\/\[0\.03\] {
+  background-color: var(--surface);
+}
+
+html[data-theme="light"] .bg-white\/10 {
+  background-color: var(--surface-muted);
+}
+
+html[data-theme="light"] .hover\:bg-white\/5:hover,
+html[data-theme="light"] .hover\:bg-white\/10:hover,
+html[data-theme="light"] .hover\:bg-white\/\[0\.06\]:hover,
+html[data-theme="light"] .hover\:bg-black\/45:hover {
+  background-color: rgba(15, 23, 42, 0.08);
+}
+
+html[data-theme="light"] .focus\:bg-white\/\[0\.03\]:focus {
+  background-color: rgba(255, 255, 255, 0.92);
+}
+
+html[data-theme="light"] .bg-orange-500\/10,
+html[data-theme="light"] .bg-orange-500\/15,
+html[data-theme="light"] .bg-orange-500\/\[0\.04\],
+html[data-theme="light"] .hover\:bg-orange-500\/20:hover,
+html[data-theme="light"] .hover\:bg-orange-950\/40:hover {
+  background-color: rgba(249, 115, 22, 0.1);
+}
+
+html[data-theme="light"] .bg-amber-500\/10,
+html[data-theme="light"] .from-amber-500\/15,
+html[data-theme="light"] .to-orange-500\/15 {
+  --tw-gradient-from: rgba(245, 158, 11, 0.16);
+  --tw-gradient-to: rgba(249, 115, 22, 0.14);
+  background-color: rgba(245, 158, 11, 0.08);
+}
+
+html[data-theme="light"] .border-white\/5 {
+  border-color: var(--border-soft);
+}
+
+html[data-theme="light"] .border-white\/10,
+html[data-theme="light"] .border-white\/20 {
+  border-color: var(--border);
+}
+
+html[data-theme="light"] .border-orange-300\/15,
+html[data-theme="light"] .border-orange-300\/20,
+html[data-theme="light"] .border-orange-300\/30,
+html[data-theme="light"] .border-orange-400\/30,
+html[data-theme="light"] .border-orange-500\/20 {
+  border-color: rgba(234, 88, 12, 0.24);
+}
+
+html[data-theme="light"] .ring-white\/10,
+html[data-theme="light"] .ring-white\/15,
+html[data-theme="light"] .ring-white\/\[0\.05\],
+html[data-theme="light"] .ring-white\/\[0\.06\] {
+  --tw-ring-color: rgba(15, 23, 42, 0.11);
+}
+
+html[data-theme="light"] .ring-black\/80 {
+  --tw-ring-color: rgba(255, 255, 255, 0.9);
+}
+
+html[data-theme="light"] .text-zinc-100,
+html[data-theme="light"] .text-zinc-200 {
+  color: #18181b;
+}
+
+html[data-theme="light"] .text-zinc-300 {
+  color: #3f3f46;
+}
+
+html[data-theme="light"] .text-zinc-400 {
+  color: #52525b;
+}
+
+html[data-theme="light"] .text-zinc-500 {
+  color: #6b7280;
+}
+
+html[data-theme="light"] .text-zinc-600 {
+  color: #737373;
+}
+
+html[data-theme="light"] .placeholder\:text-zinc-600::placeholder {
+  color: #9ca3af;
+}
+
+html[data-theme="light"] .hover\:text-white:hover,
+html[data-theme="light"] .hover\:text-zinc-200:hover,
+html[data-theme="light"] .hover\:text-zinc-300:hover,
+html[data-theme="light"] .hover\:text-zinc-400:hover {
+  color: #111827;
+}
+
+html[data-theme="light"] .text-orange-100,
+html[data-theme="light"] .text-orange-200,
+html[data-theme="light"] .text-orange-200\/80,
+html[data-theme="light"] .text-orange-200\/90,
+html[data-theme="light"] .text-orange-300,
+html[data-theme="light"] .text-orange-300\/60,
+html[data-theme="light"] .text-orange-300\/70,
+html[data-theme="light"] .text-orange-400,
+html[data-theme="light"] .hover\:text-orange-200:hover,
+html[data-theme="light"] .hover\:text-orange-300:hover {
+  color: #c2410c;
+}
+
+html[data-theme="light"] .text-amber-100,
+html[data-theme="light"] .text-amber-200,
+html[data-theme="light"] .text-amber-300 {
+  color: #a16207;
+}
+
+html[data-theme="light"] .text-violet-300 {
+  color: #6d28d9;
+}
+
+html[data-theme="light"] .text-emerald-300 {
+  color: #047857;
+}
+
+html[data-theme="light"] .text-slate-300 {
+  color: #475569;
+}
+
+html[data-theme="light"] .text-rose-400 {
+  color: #be123c;
+}
+
+html[data-theme="light"] .shadow-2xl,
+html[data-theme="light"] .shadow-xl {
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.16);
+}
+
+html[data-theme="light"] [data-force-dark] {
+  background-color: #0a0a0b;
+  color: #ffffff;
+}
+
+html[data-theme="light"] [data-force-dark] .bg-black\/35 {
+  background-color: rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme="light"] [data-force-dark] .text-zinc-400 {
+  color: #a1a1aa;
+}
+
+html[data-theme="light"] [data-force-dark] .text-zinc-500,
+html[data-theme="light"] [data-force-dark] .text-zinc-600 {
+  color: #71717a;
+}
+
+html[data-theme="light"] [data-force-dark] .text-orange-200,
+html[data-theme="light"] [data-force-dark] .text-orange-400 {
+  color: #fb923c;
 }
 
 /* Markdown report styling (react-markdown output) */
@@ -40,18 +246,18 @@ body {
 }
 .report th,
 .report td {
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--border);
   padding: 0.45rem 0.6rem;
   text-align: left;
 }
 .report th {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--surface-muted);
 }
 .report strong {
-  color: #fff;
+  color: var(--foreground);
 }
 .report code {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface-muted);
   padding: 0.1em 0.35em;
   border-radius: 4px;
   font-family: var(--font-mono), monospace;

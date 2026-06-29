@@ -29,6 +29,22 @@ const HTML_LANG: Record<string, string> = { zh: "zh-CN", en: "en" };
 const GA_MEASUREMENT_ID =
   process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? "G-GHXRYBFZEN";
 
+const THEME_INIT_SCRIPT = `
+try {
+  var key = "github-roast-theme";
+  var stored = localStorage.getItem(key);
+  var mode = stored === "light" || stored === "dark" || stored === "auto"
+    ? stored
+    : "auto";
+  var theme = mode === "auto"
+    ? (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark")
+    : mode;
+  document.documentElement.dataset.theme = theme;
+  document.documentElement.dataset.themeMode = mode;
+  document.documentElement.style.colorScheme = theme;
+} catch (_) {}
+`;
+
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
@@ -81,6 +97,9 @@ export default async function LocaleLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <Script id="theme-init" strategy="beforeInteractive">
+          {THEME_INIT_SCRIPT}
+        </Script>
         {/* Google tag (gtag.js) — loaded on every page via the root layout */}
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}

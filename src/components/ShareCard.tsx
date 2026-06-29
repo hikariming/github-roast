@@ -58,6 +58,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
   return (
     <div
       ref={ref}
+      data-force-dark
       style={{ width: 600, height: 540 }}
       className="relative flex flex-col justify-between overflow-hidden bg-[#0a0a0b] p-7 font-sans text-white"
     >

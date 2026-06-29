@@ -1,7 +1,19 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
+
+function subscribeOrigin() {
+  return () => {};
+}
+
+function getOriginSnapshot() {
+  return typeof window === "undefined" ? null : window.location.origin;
+}
+
+function getServerOriginSnapshot() {
+  return null;
+}
 
 /** One copyable snippet row. Declared at module scope (not inside render) so it
  *  keeps a stable identity and doesn't reset state on every parent render. */
@@ -57,11 +69,11 @@ export function CopyBadge({
 }) {
   const T = useTranslations("badge");
   const [copied, setCopied] = useState<string | null>(null);
-  const [previewOrigin, setPreviewOrigin] = useState<string | null>(null);
-
-  useEffect(() => {
-    setPreviewOrigin(window.location.origin);
-  }, []);
+  const previewOrigin = useSyncExternalStore(
+    subscribeOrigin,
+    getOriginSnapshot,
+    getServerOriginSnapshot,
+  );
 
   const base = baseUrl.replace(/\/$/, "");
   const previewBase = (previewOrigin ?? base).replace(/\/$/, "");
