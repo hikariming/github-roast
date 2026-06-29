@@ -80,7 +80,7 @@ export function TierAvatarFrame({
         <span
           key={`${frame.emoji}-${placement}`}
           aria-hidden="true"
-          className={`absolute z-10 flex items-center justify-center rounded-full bg-[#0a0a0b] leading-none drop-shadow ${emojiShellClass} ${emojiClass} ${EMOJI_POSITIONS[placement]}`}
+          className={`tier-avatar-emoji-shell absolute z-10 flex items-center justify-center rounded-full bg-[#0a0a0b] leading-none drop-shadow ${emojiShellClass} ${emojiClass} ${EMOJI_POSITIONS[placement]}`}
         >
           {frame.emoji}
         </span>
