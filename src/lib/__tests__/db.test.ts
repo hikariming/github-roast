@@ -129,6 +129,54 @@ describe("profile comments", () => {
   });
 });
 
+describe("profile reactions", () => {
+  it("stores one durable reaction per GitHub user and target profile", async () => {
+    await db.setProfileReaction({
+      targetUsername: "React-Target",
+      voterGithubId: 101,
+      voterLogin: "alice",
+      reaction: "like",
+    });
+    await db.setProfileReaction({
+      targetUsername: "react-target",
+      voterGithubId: 202,
+      voterLogin: "bob",
+      reaction: "poop",
+    });
+
+    await expect(db.getProfileReactionState("REACT-TARGET", 101)).resolves.toEqual({
+      counts: { like: 1, poop: 1, kick: 0, fire: 0, salute: 0, clown: 0 },
+      viewerReaction: "like",
+    });
+  });
+
+  it("atomically replaces an existing reaction instead of adding another vote", async () => {
+    const state = await db.setProfileReaction({
+      targetUsername: "react-target",
+      voterGithubId: 101,
+      voterLogin: "alice-renamed",
+      reaction: "fire",
+    });
+
+    expect(state).toEqual({
+      counts: { like: 0, poop: 1, kick: 0, fire: 1, salute: 0, clown: 0 },
+      viewerReaction: "fire",
+    });
+  });
+
+  it("removes only the authenticated user's reaction", async () => {
+    const state = await db.removeProfileReaction({
+      targetUsername: "REACT-TARGET",
+      voterGithubId: 101,
+    });
+
+    expect(state).toEqual({
+      counts: { like: 0, poop: 1, kick: 0, fire: 0, salute: 0, clown: 0 },
+      viewerReaction: null,
+    });
+  });
+});
+
 describe("getTrendingLeaderboard", () => {
   it("counts unique lookups from the last seven days only", async () => {
     const now = Date.now();

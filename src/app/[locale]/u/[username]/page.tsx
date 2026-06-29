@@ -5,7 +5,12 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-import { getAccountDetail, getProfileComments, getSimilarAccounts } from "@/lib/db";
+import {
+  getAccountDetail,
+  getProfileComments,
+  getProfileReactionState,
+  getSimilarAccounts,
+} from "@/lib/db";
 import { JsonLd, profileJsonLd } from "@/components/JsonLd";
 import { SITE_URL, PUBLIC_INDEX_MIN_SCORE } from "@/lib/site";
 import { CopyBadge } from "@/components/CopyBadge";
@@ -15,6 +20,8 @@ import { SUBSCORE_MAX } from "@/lib/score";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
 import { normLang } from "@/lib/lang";
 import type { SubScoreKey } from "@/lib/types";
+import { auth, authConfigured, signIn } from "@/lib/auth";
+import { ProfileReactions } from "@/components/ProfileReactions";
 
 // Profile comments must be fresh; score/roast data is still fetched from the DB
 // and remains cached at the persistence layer where applicable.
@@ -108,10 +115,18 @@ export default async function AccountPage({
   // visitor's language even when the full report exists only in the other one.
   // Empty for legacy rows — those still carry the one-liner inline in `roast`.
   const roastLine = lang === "en" ? d.roast_line.en : d.roast_line.zh;
-  const [similar, comments] = await Promise.all([
+  const authAvailable = authConfigured();
+  const session = authAvailable ? await auth() : null;
+  const [similar, comments, reactionState] = await Promise.all([
     getSimilarAccounts(d.username, d.final_score, d.sub_scores),
     getProfileComments(d.username),
+    getProfileReactionState(d.username, session?.user.githubId),
   ]);
+  const detailPath = locale === "en" ? `/en/u/${d.username}` : `/u/${d.username}`;
+  async function signInForReaction() {
+    "use server";
+    await signIn("github", { redirectTo: detailPath });
+  }
 
   return (
     <main className="relative isolate flex w-full flex-1 justify-center overflow-hidden px-5 py-14 sm:py-20">
@@ -190,6 +205,15 @@ export default async function AccountPage({
           </div>
         )}
       </div>
+
+      <ProfileReactions
+        key={`reactions-${d.username}`}
+        authenticated={Boolean(session?.user.githubId)}
+        authAvailable={authAvailable}
+        initialState={reactionState}
+        profileUsername={d.username}
+        signInAction={signInForReaction}
+      />
 
       {/* Dimension breakdown */}
       <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-5 sm:p-6">

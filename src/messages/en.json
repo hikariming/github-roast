@@ -137,6 +137,19 @@
     "roastEmpty": "This roast hasn't been archived yet — <a>judge again from the home page</a> to generate it.",
     "selfCta": "Rate your own GitHub →"
   },
+  "reactions": {
+    "heading": "Community reactions",
+    "hint": "One reaction per GitHub account; switch it any time",
+    "loginRequired": "Sign in with GitHub to react. Your choice will be saved.",
+    "loginAction": "Sign in with GitHub",
+    "failed": "Your reaction wasn't saved. Try again later.",
+    "like": "Respect",
+    "poop": "Too watery",
+    "kick": "Kick",
+    "fire": "Wild",
+    "salute": "Salute",
+    "clown": "Can't even"
+  },
   "detailMeta": {
     "title": "{username} — {score}/100 · {tier} | Savage GitHub Roast",
     "descWithTags": "{tags} — see {username}'s full score report on githubroast.dev.",

@@ -137,6 +137,19 @@
     "roastEmpty": "这份锐评还没存档 —— <a>去首页重新审判一次</a> 即可生成。",
     "selfCta": "测测你自己的 GitHub 含金量 →"
   },
+  "reactions": {
+    "heading": "社区反应",
+    "hint": "每个 GitHub 账号只能保留一种反应，可随时改选",
+    "loginRequired": "登录 GitHub 后才能投票，选择会长期保留。",
+    "loginAction": "使用 GitHub 登录",
+    "failed": "反应没有保存成功，请稍后重试。",
+    "like": "认可",
+    "poop": "太水了",
+    "kick": "踹一脚",
+    "fire": "离谱",
+    "salute": "服了",
+    "clown": "绷不住"
+  },
   "detailMeta": {
     "title": "{username} — {score}/100 · {tier} | 毒舌 GitHub 评分",
     "descWithTags": "{tags} —— 在 githubroast.dev 查看 {username} 的完整评分报告。",

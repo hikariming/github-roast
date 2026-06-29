@@ -37,4 +37,25 @@ describe("messages parity", () => {
       expect(empties, `empty in ${name}.json: ${empties.join(", ")}`).toEqual([]);
     }
   });
+
+  it("includes labels and states for every profile reaction", () => {
+    const required = [
+      "reactions.heading",
+      "reactions.hint",
+      "reactions.loginRequired",
+      "reactions.loginAction",
+      "reactions.failed",
+      "reactions.like",
+      "reactions.poop",
+      "reactions.kick",
+      "reactions.fire",
+      "reactions.salute",
+      "reactions.clown",
+    ];
+    for (const messages of [en, zh] as const) {
+      expect(required.every((path) => typeof leaf(messages as Msgs, path) === "string")).toBe(
+        true,
+      );
+    }
+  });
 });

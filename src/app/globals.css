@@ -103,10 +103,31 @@ body {
   will-change: transform;
 }
 
+@keyframes profile-reaction-bump {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: translateY(-0.2rem) scale(1.1) rotate(-2deg);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.profile-reaction-bump {
+  animation: profile-reaction-bump 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .floating-comment-bubble,
-  .mobile-danmaku-comment {
+  .mobile-danmaku-comment,
+  .profile-reaction-bump {
     animation: none;
+  }
+
+  .profile-reaction-button {
+    transition: none;
   }
 }
 
