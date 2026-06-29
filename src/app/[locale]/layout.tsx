@@ -60,7 +60,7 @@ export async function generateMetadata({
   return {
     metadataBase: new URL(SITE_URL),
     title: t("title"),
-    description: t("description"),
+    description: t("description", { siteUrl: SITE_URL.replace(/^https?:\/\//, "") }),
     alternates: {
       languages: { "zh-CN": "/", en: "/en" },
     },
