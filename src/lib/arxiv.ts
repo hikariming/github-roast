@@ -6,10 +6,11 @@
  */
 
 import type { PaperData } from "./paper-types";
+import { SITE_URL } from "./site";
 
 const ARXIV_API = "https://export.arxiv.org/api/query";
 const S2_API = "https://api.semanticscholar.org/graph/v1/paper";
-const USER_AGENT = `${process.env.PUBLIC_SITE_URL || "githubroast.dev"} paper-review`;
+const USER_AGENT = `${SITE_URL.replace(/^https?:\/\//, "")} paper-review`;
 
 export class PaperNotFoundError extends Error {}
 

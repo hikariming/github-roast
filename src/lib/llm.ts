@@ -8,6 +8,8 @@
  * never persisted server-side.
  */
 
+import { SITE_URL } from "./site";
+
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
   content: string;
@@ -102,7 +104,7 @@ export async function* chatStream(
         "Content-Type": "application/json",
         Authorization: `Bearer ${config.apiKey}`,
         // OpenRouter attribution headers (ignored by other providers).
-        "HTTP-Referer": process.env.PUBLIC_SITE_URL || "https://githubroast.dev",
+        "HTTP-Referer": SITE_URL,
         "X-Title": "GitHub Roast",
       },
       body: JSON.stringify({
