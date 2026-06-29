@@ -39,9 +39,7 @@ export default async function LeaderboardPage({
       ? "score"
       : query?.view === "heat"
         ? "heat"
-        : query?.view === "progress"
-          ? "progress"
-          : "trending";
+        : "trending";
   await connection();
   setRequestLocale(locale);
   const t = await getTranslations("leaderboard");
@@ -50,21 +48,17 @@ export default async function LeaderboardPage({
       ? t("scoreView")
       : view === "heat"
         ? t("heatView")
-        : view === "progress"
-          ? t("progressView")
-          : t("trendView");
+        : t("trendView");
   const subtitle =
     view === "score"
       ? t("scoreSubtitle")
       : view === "heat"
         ? t("heatSubtitle")
-        : view === "progress"
-          ? t("progressSubtitle")
-          : t("trendSubtitle");
+        : t("trendSubtitle");
 
   // Structured data only for the canonical score ranking — the directory's main
-  // "top developers" list. Heat/progress are sort variants behind query params,
-  // so emitting one ItemList keeps the markup unambiguous for crawlers.
+  // "top developers" list. Heat is a sort variant behind query params, so
+  // emitting one ItemList keeps the markup unambiguous for crawlers.
   const rankingEntries = view === "score" ? await getLeaderboard(50) : [];
 
   return (
@@ -86,7 +80,7 @@ export default async function LeaderboardPage({
               {t("heading")}
             </h1>
             <p className="mt-2 text-xl font-black text-zinc-300">{viewTitle}</p>
-            <div className="mt-4 grid w-full max-w-[40rem] grid-cols-2 items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] p-1 text-sm font-bold sm:grid-cols-4">
+            <div className="mt-4 grid w-full max-w-[40rem] grid-cols-1 items-center gap-1 rounded-2xl border border-white/10 bg-white/[0.03] p-1 text-sm font-bold sm:grid-cols-3 sm:rounded-full">
               <Link
                 href="/leaderboard"
                 className={`whitespace-nowrap rounded-full px-2 py-1.5 text-center transition-colors ${
@@ -116,16 +110,6 @@ export default async function LeaderboardPage({
                 }`}
               >
                 {t("heatView")}
-              </Link>
-              <Link
-                href="/leaderboard?view=progress"
-                className={`whitespace-nowrap rounded-full px-2 py-1.5 text-center transition-colors ${
-                  view === "progress"
-                    ? "bg-white/10 text-zinc-100"
-                    : "text-zinc-500 hover:text-zinc-200"
-                }`}
-              >
-                {t("progressView")}
               </Link>
             </div>
           </div>

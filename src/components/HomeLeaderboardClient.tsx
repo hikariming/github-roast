@@ -15,7 +15,6 @@ export interface HomeLeaderboardLabels {
   trendView: string;
   scoreView: string;
   heatView: string;
-  progressView: string;
 }
 
 function TabDivider() {
@@ -29,7 +28,6 @@ export function HomeLeaderboardClient({
   pageSize,
   scoreEntries,
   trendingEntries,
-  progressEntries = [],
 }: {
   heatEntries: LeaderboardClientEntry[];
   labels: HomeLeaderboardLabels;
@@ -37,16 +35,13 @@ export function HomeLeaderboardClient({
   pageSize: number;
   scoreEntries: LeaderboardClientEntry[];
   trendingEntries: LeaderboardClientEntry[];
-  progressEntries?: LeaderboardClientEntry[];
 }) {
   const [view, setView] = useState<LeaderboardView>("trending");
   const fullBoardHref =
     view === "score"
       ? "/leaderboard?view=score"
       : view === "heat"
-      ? "/leaderboard?view=heat"
-      : view === "progress"
-        ? "/leaderboard?view=progress"
+        ? "/leaderboard?view=heat"
         : "/leaderboard";
   const tabClass = (tab: LeaderboardView) =>
     `shrink-0 text-base font-black leading-tight sm:text-lg ${
@@ -87,15 +82,6 @@ export function HomeLeaderboardClient({
             >
               {labels.heatView}
             </button>
-            <TabDivider />
-            <button
-              type="button"
-              onClick={() => setView("progress")}
-              className={tabClass("progress")}
-              aria-pressed={view === "progress"}
-            >
-              {labels.progressView}
-            </button>
           </div>
         </div>
         <Link
@@ -113,7 +99,6 @@ export function HomeLeaderboardClient({
         scoreEntries={scoreEntries}
         heatEntries={heatEntries}
         trendingEntries={trendingEntries}
-        progressEntries={progressEntries}
       />
     </section>
   );
