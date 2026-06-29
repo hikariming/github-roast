@@ -21,7 +21,19 @@ import {
   type ProfileComment,
   type ProfileCommentAuthor,
 } from "./comments";
+import {
+  emptyReactionCounts,
+  isProfileReaction,
+  type ProfileReaction,
+  type ProfileReactionCounts,
+  type ProfileReactionState,
+} from "./reactions";
 import { computeTrendingScore, rankTrending } from "./hotness";
+import {
+  clearCachedReactionCounts,
+  getCachedReactionCounts,
+  setCachedReactionCounts,
+} from "./redis";
 import type { Lang } from "./lang";
 import type { PaperDims, PaperMode, PaperTierKey } from "./paper-types";
 import { rankSimilar } from "./similarity";
@@ -139,6 +151,10 @@ function ensureSchema(db: Client): Promise<void> {
              scanned_at   INTEGER NOT NULL
            )`,
           `CREATE INDEX IF NOT EXISTS idx_scores_score ON scores(final_score DESC)`,
+          // Leaderboard & sitemap all filter `hidden = 0 AND final_score >= ?`,
+          // so a composite index lets one seek cover both conditions.
+          `CREATE INDEX IF NOT EXISTS idx_scores_hidden_score
+             ON scores(hidden, final_score DESC)`,
           `CREATE TABLE IF NOT EXISTS account_stats (
              username        TEXT PRIMARY KEY,
              lookup_count    INTEGER NOT NULL DEFAULT 0,
@@ -179,6 +195,17 @@ function ensureSchema(db: Client): Promise<void> {
            )`,
           `CREATE INDEX IF NOT EXISTS idx_profile_comments_target_created
              ON profile_comments(target_username, created_at DESC)`,
+          `CREATE TABLE IF NOT EXISTS profile_reactions (
+             target_username  TEXT NOT NULL,
+             voter_github_id  INTEGER NOT NULL,
+             voter_login      TEXT NOT NULL,
+             reaction         TEXT NOT NULL,
+             created_at       INTEGER NOT NULL,
+             updated_at       INTEGER NOT NULL,
+             PRIMARY KEY (target_username, voter_github_id)
+           )`,
+          `CREATE INDEX IF NOT EXISTS idx_profile_reactions_target_reaction
+             ON profile_reactions(target_username, reaction)`,
           // arXiv 论文锐评: one row per scored paper (score fixed once computed).
           `CREATE TABLE IF NOT EXISTS papers (
              arxiv_id      TEXT PRIMARY KEY,
@@ -973,15 +1000,18 @@ export async function getProfileComments(
     const res = await db.execute({
       sql: `SELECT id, target_username, body, author_kind, author_login,
                    author_avatar_url, created_at
-            FROM profile_comments
-            WHERE target_username = ? AND hidden = 0
-            ORDER BY created_at DESC
-            LIMIT ?`,
+            FROM (
+              SELECT rowid AS sort_rowid, id, target_username, body, author_kind,
+                     author_login, author_avatar_url, created_at
+              FROM profile_comments
+              WHERE target_username = ? AND hidden = 0
+              ORDER BY created_at DESC, rowid DESC
+              LIMIT ?
+            )
+            ORDER BY created_at ASC, sort_rowid ASC`,
       args: [target, Math.max(1, Math.min(100, limit))],
     });
-    return res.rows
-      .map((row) => toProfileComment(row as Record<string, unknown>))
-      .reverse();
+    return res.rows.map((row) => toProfileComment(row as Record<string, unknown>));
   } catch (e) {
     console.error("getProfileComments failed:", e);
     return [];
@@ -1036,6 +1066,137 @@ export async function createProfileComment(
     };
   } catch (e) {
     console.error("createProfileComment failed:", e);
+    return null;
+  }
+}
+
+interface SetProfileReactionInput {
+  targetUsername: string;
+  voterGithubId: number;
+  voterLogin: string;
+  reaction: ProfileReaction;
+}
+
+interface RemoveProfileReactionInput {
+  targetUsername: string;
+  voterGithubId: number;
+}
+
+function validGithubId(value: number): boolean {
+  return Number.isSafeInteger(value) && value > 0;
+}
+
+/** Cache-aside read of a profile's global reaction tallies. A hit skips the
+ *  GROUP BY entirely — the hot path for crawlers and logged-out visitors. */
+async function readReactionCounts(
+  db: Client,
+  target: string,
+): Promise<ProfileReactionCounts> {
+  const cached = await getCachedReactionCounts(target);
+  if (cached) return cached;
+  const counts = emptyReactionCounts();
+  const res = await db.execute({
+    sql: `SELECT reaction, COUNT(*) AS count
+          FROM profile_reactions
+          WHERE target_username = ?
+          GROUP BY reaction`,
+    args: [target],
+  });
+  for (const row of res.rows) {
+    if (isProfileReaction(row.reaction)) counts[row.reaction] = Number(row.count) || 0;
+  }
+  await setCachedReactionCounts(target, counts);
+  return counts;
+}
+
+export async function getProfileReactionState(
+  targetUsername: string,
+  viewerGithubId?: number,
+): Promise<ProfileReactionState> {
+  const db = getClient();
+  const target = normalizeGitHubUsername(targetUsername);
+  if (!db || !target) return { counts: emptyReactionCounts(), viewerReaction: null };
+
+  try {
+    await ensureSchema(db);
+    const [counts, viewerResult] = await Promise.all([
+      readReactionCounts(db, target),
+      validGithubId(viewerGithubId ?? 0)
+        ? db.execute({
+            sql: `SELECT reaction
+                  FROM profile_reactions
+                  WHERE target_username = ? AND voter_github_id = ?`,
+            args: [target, viewerGithubId!],
+          })
+        : Promise.resolve(null),
+    ]);
+
+    const viewerValue = viewerResult?.rows[0]?.reaction;
+    return {
+      counts,
+      viewerReaction: isProfileReaction(viewerValue) ? viewerValue : null,
+    };
+  } catch (e) {
+    console.error("getProfileReactionState failed:", e);
+    return { counts: emptyReactionCounts(), viewerReaction: null };
+  }
+}
+
+export async function setProfileReaction(
+  input: SetProfileReactionInput,
+): Promise<ProfileReactionState | null> {
+  const db = getClient();
+  const target = normalizeGitHubUsername(input.targetUsername);
+  const voterLogin = normalizeGitHubUsername(input.voterLogin);
+  if (
+    !db ||
+    !target ||
+    !voterLogin ||
+    !validGithubId(input.voterGithubId) ||
+    !isProfileReaction(input.reaction)
+  ) {
+    return null;
+  }
+
+  try {
+    await ensureSchema(db);
+    const now = Date.now();
+    await db.execute({
+      sql: `INSERT INTO profile_reactions
+              (target_username, voter_github_id, voter_login, reaction, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(target_username, voter_github_id) DO UPDATE SET
+              voter_login = excluded.voter_login,
+              reaction = excluded.reaction,
+              updated_at = excluded.updated_at`,
+      args: [target, input.voterGithubId, voterLogin, input.reaction, now, now],
+    });
+    await clearCachedReactionCounts(target);
+    return getProfileReactionState(target, input.voterGithubId);
+  } catch (e) {
+    console.error("setProfileReaction failed:", e);
+    return null;
+  }
+}
+
+export async function removeProfileReaction(
+  input: RemoveProfileReactionInput,
+): Promise<ProfileReactionState | null> {
+  const db = getClient();
+  const target = normalizeGitHubUsername(input.targetUsername);
+  if (!db || !target || !validGithubId(input.voterGithubId)) return null;
+
+  try {
+    await ensureSchema(db);
+    await db.execute({
+      sql: `DELETE FROM profile_reactions
+            WHERE target_username = ? AND voter_github_id = ?`,
+      args: [target, input.voterGithubId],
+    });
+    await clearCachedReactionCounts(target);
+    return getProfileReactionState(target, input.voterGithubId);
+  } catch (e) {
+    console.error("removeProfileReaction failed:", e);
     return null;
   }
 }

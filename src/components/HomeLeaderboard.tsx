@@ -1,9 +1,5 @@
 import { getTranslations } from "next-intl/server";
-import {
-  getHeatLeaderboard,
-  getLeaderboard,
-  getTrendingLeaderboard,
-} from "@/lib/db";
+import { getLeaderboardCached } from "@/lib/leaderboard";
 import { HomeLeaderboardClient, type HomeLeaderboardLabels } from "./HomeLeaderboardClient";
 import type { LeaderboardLabels } from "./LeaderboardClient";
 import { withDevLeaderboardPreview } from "./devLeaderboardPreview";
@@ -33,11 +29,14 @@ export async function HomeLeaderboard({ pageSize = 10 }: { pageSize?: number }) 
     heatView: tBoard("heatView"),
   };
 
-  const [trendingEntries, scoreEntries, heatEntries] = await Promise.all([
-    getTrendingLeaderboard(500),
-    getLeaderboard(500),
-    getHeatLeaderboard(500),
+  const [trending, score, heat] = await Promise.all([
+    getLeaderboardCached("trending"),
+    getLeaderboardCached("score"),
+    getLeaderboardCached("heat"),
   ]);
+  const trendingEntries = trending.entries;
+  const scoreEntries = score.entries;
+  const heatEntries = heat.entries;
 
   return (
     <HomeLeaderboardClient

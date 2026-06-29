@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { connection } from "next/server";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
@@ -68,7 +69,15 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
 
       <Roaster />
 
-      <HomeLeaderboard pageSize={10} />
+      <Suspense
+        fallback={
+          <section className="mt-16 w-full max-w-4xl">
+            <div className="h-72 animate-pulse rounded-2xl border border-white/5 bg-white/5" />
+          </section>
+        }
+      >
+        <HomeLeaderboard pageSize={10} />
+      </Suspense>
 
       <footer className="mt-20 max-w-xl text-center text-xs leading-relaxed text-zinc-600">
         <p>{t.rich("disclaimer1", { b: (c) => <strong>{c}</strong> })}</p>

@@ -17,6 +17,7 @@ import {
 } from "./cache-version";
 import type { LeaderboardEntry } from "./db";
 import type { Lang } from "./lang";
+import type { ProfileReactionCounts } from "./reactions";
 import type { ScanResult } from "./types";
 
 let redis: Redis | null = null;
@@ -339,6 +340,48 @@ export async function clearCachedLeaderboards(): Promise<void> {
       leaderboardKey("heat"),
       leaderboardKey("progress"),
     );
+  } catch {
+    // best-effort
+  }
+}
+
+// Reaction *counts* are global to a profile — every visitor sees the same
+// numbers — so they cache well. The per-viewer "which did I pick" is NOT cached
+// (it's user-specific and read live). Short TTL keeps counts near-real-time;
+// writes also bust the key so the actor sees their own vote immediately.
+const reactionCountsKey = (target: string) => `reactions:counts:${target}`;
+const REACTION_COUNTS_TTL_SECONDS = 60;
+
+export async function getCachedReactionCounts(
+  target: string,
+): Promise<ProfileReactionCounts | null> {
+  const r = getRedis();
+  if (!r) return null;
+  try {
+    return (await r.get<ProfileReactionCounts>(reactionCountsKey(target))) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setCachedReactionCounts(
+  target: string,
+  counts: ProfileReactionCounts,
+): Promise<void> {
+  const r = getRedis();
+  if (!r) return;
+  try {
+    await r.set(reactionCountsKey(target), counts, { ex: REACTION_COUNTS_TTL_SECONDS });
+  } catch {
+    // best-effort
+  }
+}
+
+export async function clearCachedReactionCounts(target: string): Promise<void> {
+  const r = getRedis();
+  if (!r) return;
+  try {
+    await r.del(reactionCountsKey(target));
   } catch {
     // best-effort
   }

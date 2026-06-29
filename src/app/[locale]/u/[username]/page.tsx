@@ -1,4 +1,4 @@
-import { cache } from "react";
+import { cache, Suspense } from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import ReactMarkdown from "react-markdown";
@@ -15,6 +15,7 @@ import { SUBSCORE_MAX } from "@/lib/score";
 import { TIER_KEY, tierStyle } from "@/lib/tier";
 import { normLang } from "@/lib/lang";
 import type { SubScoreKey } from "@/lib/types";
+import { ProfileReactionsSection } from "@/components/ProfileReactionsSection";
 
 // Profile comments must be fresh; score/roast data is still fetched from the DB
 // and remains cached at the persistence layer where applicable.
@@ -112,6 +113,7 @@ export default async function AccountPage({
     getSimilarAccounts(d.username, d.final_score, d.sub_scores),
     getProfileComments(d.username),
   ]);
+  const detailPath = locale === "en" ? `/en/u/${d.username}` : `/u/${d.username}`;
 
   return (
     <main className="relative isolate flex w-full flex-1 justify-center overflow-hidden px-5 py-14 sm:py-20">
@@ -190,6 +192,18 @@ export default async function AccountPage({
           </div>
         )}
       </div>
+
+      <Suspense
+        fallback={
+          <div className="mt-4 h-28 animate-pulse rounded-2xl border border-orange-300/15 bg-orange-500/[0.035]" />
+        }
+      >
+        <ProfileReactionsSection
+          key={`reactions-${d.username}`}
+          username={d.username}
+          redirectTo={detailPath}
+        />
+      </Suspense>
 
       {/* Dimension breakdown */}
       <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-5 sm:p-6">

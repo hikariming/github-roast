@@ -3,17 +3,11 @@
 import { useTranslations } from "next-intl";
 import { useState, useSyncExternalStore } from "react";
 
-function subscribeOrigin() {
-  return () => {};
-}
-
-function getOriginSnapshot() {
-  return typeof window === "undefined" ? null : window.location.origin;
-}
-
-function getServerOriginSnapshot() {
-  return null;
-}
+// Stable no-op subscribe: the origin never changes after load, so we only need
+// the server/client snapshot split (null on SSR, real origin once hydrated).
+const subscribeNoop = () => () => {};
+const getOriginSnapshot = () => window.location.origin;
+const getOriginServerSnapshot = () => null;
 
 type CardTheme = "dark" | "light";
 
@@ -83,9 +77,9 @@ export function CopyBadge({
   const T = useTranslations("badge");
   const [copied, setCopied] = useState<string | null>(null);
   const previewOrigin = useSyncExternalStore(
-    subscribeOrigin,
+    subscribeNoop,
     getOriginSnapshot,
-    getServerOriginSnapshot,
+    getOriginServerSnapshot,
   );
 
   const base = baseUrl.replace(/\/$/, "");
