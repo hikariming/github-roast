@@ -7,7 +7,7 @@
  * sitemap, robots, JSON-LD) now imports `SITE_URL` from here.
  */
 export const SITE_URL = (
-  process.env.PUBLIC_SITE_URL || "https://githubroast.dev"
+  process.env.NEXT_PUBLIC_SITE_URL || process.env.PUBLIC_SITE_URL || "https://githubroast.dev"
 ).replace(/\/$/, "");
 
 /**
