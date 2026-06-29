@@ -406,7 +406,7 @@ export function FloatingCommentBubbles({
             className="floating-comment-bubble absolute w-max min-w-0 max-w-[14rem]"
             style={bubbleStyle(bubble)}
           >
-            <div className="flex w-full min-w-0 flex-col items-start rounded-2xl border border-orange-300/15 bg-zinc-950/60 px-3.5 py-2.5 text-orange-200/90 shadow-[0_16px_44px_rgba(0,0,0,0.42)] ring-1 ring-white/[0.05] backdrop-blur-sm">
+            <div className="floating-comment-card flex w-full min-w-0 flex-col items-start rounded-2xl border border-orange-300/15 bg-zinc-950/60 px-3.5 py-2.5 text-orange-200/90 shadow-[0_16px_44px_rgba(0,0,0,0.42)] ring-1 ring-white/[0.05] backdrop-blur-sm">
               <FloatingCommentAuthorLabel author={bubble.author} lang={lang} />
               <span className="max-w-full whitespace-normal break-words text-xs font-semibold leading-relaxed text-orange-200 [overflow-wrap:anywhere] sm:text-sm">
                 {bubble.text}
@@ -423,7 +423,7 @@ export function FloatingCommentBubbles({
             className="mobile-danmaku-comment absolute left-0 inline-flex max-w-[88vw]"
             style={mobileDanmakuStyle(index)}
           >
-            <div className="inline-flex max-w-[88vw] items-center gap-2 rounded-full border border-orange-300/15 bg-zinc-950/60 px-2.5 py-1.5 text-orange-200/90 shadow-[0_10px_30px_rgba(0,0,0,0.35)] ring-1 ring-white/[0.05] backdrop-blur-sm">
+            <div className="floating-comment-mobile inline-flex max-w-[88vw] items-center gap-2 rounded-full border border-orange-300/15 bg-zinc-950/60 px-2.5 py-1.5 text-orange-200/90 shadow-[0_10px_30px_rgba(0,0,0,0.35)] ring-1 ring-white/[0.05] backdrop-blur-sm">
               <FloatingCommentInlineAuthor author={bubble.author} lang={lang} />
               <span className="min-w-0 truncate text-xs font-semibold text-orange-200">
                 {bubble.text}
