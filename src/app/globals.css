@@ -77,9 +77,13 @@ html[data-theme="light"] .bg-white\/10 {
 
 html[data-theme="light"] .hover\:bg-white\/5:hover,
 html[data-theme="light"] .hover\:bg-white\/10:hover,
-html[data-theme="light"] .hover\:bg-white\/\[0\.06\]:hover,
 html[data-theme="light"] .hover\:bg-black\/45:hover {
   background-color: rgba(15, 23, 42, 0.08);
+}
+
+html[data-theme="light"] .hover\:bg-white\/\[0\.06\]:hover {
+  background-color: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
 }
 
 html[data-theme="light"] .focus\:bg-white\/\[0\.03\]:focus {
