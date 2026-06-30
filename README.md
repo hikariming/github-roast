@@ -1,12 +1,52 @@
-# Savage GitHub Roast 🔥
+<div align="center">
+
+# GitHub Roast 🔥
+
+### Roast the profile. Read the signal. Find the builders.
+
+An evidence-based GitHub developer assessment, discovery, and showcase platform.
+
+Turn any public GitHub profile into a **0–100 value & trust score**, an honest roast, and a shareable developer card — then explore noteworthy builders, like-minded peers, and worthy rivals across the community.
 
 **English** · [中文](./README.zh.md)
 
-> **Live:** [githubroast.dev](https://githubroast.dev)
+[**🔥 Roast a GitHub profile**](https://githubroast.dev/en) · [**🏆 Explore developers**](https://githubroast.dev/en/leaderboard) · [**⭐ View source**](https://github.com/hikariming/github-roast)
 
-Drop a GitHub handle and get, in 30 seconds, a **0–100 value & trust score**, a five-tier verdict (🏆 GOD / 🥇 ELITE / 💪 SOLID / 🫥 NPC / 💩 TRASH), and one **brutally honest roast grounded in real data**. Built to expose star-farmers, AI bots, fork-hoarders, and self-merge PR farmers.
+</div>
 
-The scoring core comes from the open-source Claude skill `github-account-value` — this site **ports its Python scoring logic line-by-line into TypeScript**, with unit tests locking the two outputs in parity.
+[![GitHub Roast developer profile preview](./show_img/usercard.png)](https://githubroast.dev/en/u/hikariming)
+
+## Assess. Discover. Show off.
+
+### 🔥 Get a developer signal in 30 seconds
+
+Enter a GitHub handle to get a **0–100 value & trust score**, a five-tier verdict (🏆 GOD / 🥇 ELITE / 💪 SOLID / 🫥 NPC / 💩 TRASH), and a brutally honest roast grounded in public data. Six scoring dimensions and ten farming red flags help separate sustained engineering work from star farming, fork hoarding, bots, and self-merged PRs.
+
+### 🧭 Discover developers worth knowing
+
+GitHub Roast is more than a scoring tool. Use the leaderboard and public profiles to find strong open-source contributors, builders in your ecosystem, potential collaborators, and the developers you want to measure yourself against.
+
+[![GitHub Roast developer leaderboard](./show_img/leaderboard.png)](https://githubroast.dev/en/leaderboard)
+
+### 🪪 Turn your GitHub work into a shareable identity
+
+Every assessment can generate a live badge and light/dark developer card for your GitHub profile, project README, portfolio, or personal site. Here is a real example:
+
+<div align="center">
+
+[![GitHub Roast score badge](https://githubroast.dev/api/badge/hikariming)](https://githubroast.dev/en/u/hikariming)
+
+<a href="https://githubroast.dev/en/u/hikariming">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://githubroast.dev/api/card/hikariming?theme=dark">
+    <source media="(prefers-color-scheme: light)" srcset="https://githubroast.dev/api/card/hikariming?theme=light">
+    <img alt="GitHub Roast card for hikariming" src="https://githubroast.dev/api/card/hikariming?theme=light" width="720">
+  </picture>
+</a>
+
+</div>
+
+The scoring core comes from the open-source Claude skill `github-account-value`. This site **ports its Python scoring logic line-by-line into TypeScript**, with unit tests locking the two outputs in parity.
 
 ## How it works
 

@@ -1,12 +1,52 @@
+<div align="center">
+
 # 毒舌 GitHub 评分 🔥
+
+### 看穿账号成色，发现同路高手，晒出开发者身份。
+
+一个基于真实公开数据的 GitHub 开发者测评、发现与展示平台。
+
+把任意公开 GitHub 账号变成 **0–100 分价值与信任评分**、一份不留情面的锐评和一张可分享的开发者卡片；也可以在社区里发现值得关注的开发者、同领域伙伴，以及值得较量的「对家」。
 
 [English](./README.md) · **中文**
 
-> **在线访问:** [githubroast.dev](https://githubroast.dev)
+[**🔥 测测 GitHub 成色**](https://githubroast.dev) · [**🏆 发现更多开发者**](https://githubroast.dev/leaderboard) · [**⭐ 查看源码**](https://github.com/hikariming/github-roast)
 
-输入一个 GitHub 账号,30 秒得到一份 **0–100 分**的价值与信任评分、五档等级(🏆 夯 / 🥇 顶级 / 💪 人上人 / 🫥 NPC / 💩 拉完了),外加一句**扎在真实数据上的毒舌点评**。专治刷量号、AI 机器人、收藏夹开发者、自产自销自审自合的 PR farmer。
+</div>
 
-评分核心来自开源 Claude 技能 `github-account-value` —— 网站把它的 Python 打分逻辑 **逐行移植成 TypeScript**,并用单元测试锁定二者输出一致。
+[![GitHub Roast 中文开发者主页预览](./show_img/usercard_cn.png)](https://githubroast.dev/u/hikariming)
+
+## 测评、发现、展示，一站完成
+
+### 🔥 30 秒看清一个 GitHub 账号
+
+输入 GitHub 用户名，即可得到 **0–100 分**的价值与信任评分、五档等级（🏆 夯 / 🥇 顶级 / 💪 人上人 / 🫥 NPC / 💩 拉完了），外加一句扎在公开数据上的毒舌点评。六大评分维度与十类刷量信号，专治刷星号、AI 机器人、收藏夹开发者，以及自产自销自审自合的 PR farmer。
+
+### 🧭 发现值得认识的开发者
+
+这里不只负责打分。你可以通过排行榜和公开开发者主页，找到真正活跃的开源贡献者、同技术栈伙伴、潜在合作者，也能看看那些与你旗鼓相当、值得较量的「对家」。
+
+[![GitHub Roast 开发者排行榜](./show_img/leaderboard.png)](https://githubroast.dev/leaderboard)
+
+### 🪪 把开发经历变成可炫耀的身份卡
+
+每次测评都可以生成实时更新的评分徽章，以及适配明暗主题的开发者大卡。把它放进 GitHub 个人主页、项目 README、作品集或个人网站，让公开贡献替你说话。下面就是一个真实示例：
+
+<div align="center">
+
+[![GitHub Roast 评分徽章](https://githubroast.dev/api/badge/hikariming)](https://githubroast.dev/u/hikariming)
+
+<a href="https://githubroast.dev/u/hikariming">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://githubroast.dev/api/card/hikariming?theme=dark">
+    <source media="(prefers-color-scheme: light)" srcset="https://githubroast.dev/api/card/hikariming?theme=light">
+    <img alt="hikariming 的 GitHub Roast 开发者卡片" src="https://githubroast.dev/api/card/hikariming?theme=light" width="720">
+  </picture>
+</a>
+
+</div>
+
+评分核心来自开源 Claude 技能 `github-account-value`。网站把它的 Python 打分逻辑 **逐行移植成 TypeScript**，并用单元测试锁定二者输出一致。
 
 ## 工作原理
 
