@@ -271,6 +271,9 @@ function buildPayload(
       ? { impact_prs_outside_quality_sample: outsideQualitySample }
       : {}),
   };
+  const topRepos = (scan.top_repos ?? []).map((repo) =>
+    repo.readme?.features.prompt_summary ? { ...repo, readme_excerpt: undefined } : repo,
+  );
   const verifiedImpactSampleCount = scan.verified_impact_prs?.length ?? 0;
   const impactSummary =
     lang === "en"
@@ -379,7 +382,7 @@ function buildPayload(
   const payload = {
     context_notes: contextNotes,
     metrics: modelMetrics,
-    top_repos: scan.top_repos,
+    top_repos: topRepos,
     recent_prs: scan.recent_prs,
     impact_summary: impactSummary,
     impact_repos: scan.impact_repos,

@@ -17,6 +17,8 @@ const mocks = vi.hoisted(() => ({
   releaseRoastLock: vi.fn(),
   setCachedRoast: vi.fn(),
   waitForCachedRoast: vi.fn(),
+  buildRoastJudgeMessages: vi.fn((_scan: ScanResult, _lang?: string) => []),
+  buildRoastMessages: vi.fn((_scan: ScanResult, _lang?: string, _judge?: unknown) => []),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -79,8 +81,8 @@ vi.mock("@/lib/percentile", () => ({
 }));
 
 vi.mock("@/lib/prompt", () => ({
-  buildRoastJudgeMessages: () => [],
-  buildRoastMessages: () => [],
+  buildRoastJudgeMessages: mocks.buildRoastJudgeMessages,
+  buildRoastMessages: mocks.buildRoastMessages,
 }));
 
 vi.mock("@/lib/report", () => ({
@@ -235,5 +237,33 @@ describe("roast API persistence", () => {
       expect.stringContaining("## 毒舌点评"),
       "zh",
     );
+  });
+
+  it("drops malformed nested README summaries from client fallback scans", async () => {
+    const malformedScan = {
+      ...scan,
+      top_repos: [
+        {
+          readme_excerpt: "Fallback summary",
+          readme: {
+            features: {
+              prompt_summary: 42,
+            },
+          },
+        },
+      ],
+    } as unknown as ScanResult;
+
+    const response = await POST(
+      new NextRequest("https://example.test/api/roast", {
+        method: "POST",
+        body: JSON.stringify({ scan: malformedScan, lang: "zh" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const passedScan = mocks.buildRoastMessages.mock.calls[0]![0];
+    expect(passedScan.top_repos[0].readme).toBeUndefined();
+    expect(passedScan.top_repos[0].readme_excerpt).toBe("Fallback summary");
   });
 });

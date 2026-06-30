@@ -6,6 +6,32 @@
  * is identical between the website and the open-source Claude skill.
  */
 
+export interface ReadmeFeatures {
+  length: number;
+  heading_count: number;
+  has_install: boolean;
+  has_usage: boolean;
+  has_api: boolean;
+  has_demo: boolean;
+  has_features: boolean;
+  has_deploy: boolean;
+  has_test: boolean;
+  has_architecture: boolean;
+  has_screenshot: boolean;
+  placeholder_score: number;
+  content_depth_score: number;
+  prompt_summary: string;
+}
+
+export interface RepoReadme {
+  path: string;
+  sha: string | null;
+  size: number;
+  html_url: string | null;
+  truncated: boolean;
+  features: ReadmeFeatures;
+}
+
 export interface TopRepo {
   name: string;
   stars: number;
@@ -15,6 +41,7 @@ export interface TopRepo {
   language: string | null;
   description: string | null;
   pushed_at: string | null;
+  readme?: RepoReadme;
   readme_excerpt?: string | null;
   /** GitHub repo topics (official domain labels). Optional — empty when the
    * REST payload omits them or for scans cached before this field existed. */

@@ -6,8 +6,8 @@
  * change. Development bypasses these caches entirely so local prompt/scoring
  * edits are visible on the next request.
  */
-export const SCORE_CACHE_VERSION = "v4";
-export const ROAST_CACHE_VERSION = "v4";
+export const SCORE_CACHE_VERSION = "v5";
+export const ROAST_CACHE_VERSION = "v5";
 
 export function bypassGeneratedCaches(): boolean {
   return (
