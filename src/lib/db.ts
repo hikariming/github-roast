@@ -47,11 +47,39 @@ import type {
   Tier,
   TopRepo,
 } from "./types";
+import type { LeaderboardWindow } from "./leaderboardWindow";
 
 const EMPTY_TAGS: Tags = { zh: [], en: [] };
 const HEAT_LOOKUP_WINDOW_MS = 24 * 60 * 60 * 1000;
 const TRENDING_LOOKUP_WINDOW_MS = 7 * HEAT_LOOKUP_WINDOW_MS;
 const MIN_RECORDED_LOOKUP_COUNT = 1;
+
+// User-selectable leaderboard time window. Every board shares one meaning: the
+// candidate pool is "accounts looked up within this window" (and the recent-heat
+// figure is counted over the same window). "all" keeps the original behaviour —
+// no recency filter, cumulative heat. The windowed count comes from
+// `account_lookup_limits` (one row per unique IP per account, holding its most
+// recent counted lookup), which the idx_account_lookup_limits_counted_user
+// covering index serves index-only.
+export type { LeaderboardWindow };
+const LEADERBOARD_WINDOW_MS: Record<Exclude<LeaderboardWindow, "all">, number> = {
+  "24h": 24 * 60 * 60 * 1000,
+  "7d": 7 * 24 * 60 * 60 * 1000,
+  "30d": 30 * 24 * 60 * 60 * 1000,
+};
+
+/**
+ * Resolve a window into the recent-lookup cutoff (feeds the windowed heat count
+ * and the trending score's recency component) and whether to restrict the board
+ * to accounts active within it. "all" preserves the legacy 7-week trending
+ * recency window and applies no active filter.
+ */
+function resolveLeaderboardWindow(window: LeaderboardWindow, now: number) {
+  if (window === "all") {
+    return { recentCutoff: now - TRENDING_LOOKUP_WINDOW_MS, activeOnly: false };
+  }
+  return { recentCutoff: now - LEADERBOARD_WINDOW_MS[window], activeOnly: true };
+}
 // Only roll the previous score forward when this much time has passed since the
 // last recorded scan. Distinguishes a genuine re-scan (≥24h apart, since scans
 // are cached 24h) from the same session re-recording in the other language a few
@@ -229,6 +257,12 @@ function ensureSchema(db: Client): Promise<void> {
            )`,
           `CREATE INDEX IF NOT EXISTS idx_account_lookup_limits_last_counted
              ON account_lookup_limits(last_counted_at)`,
+          // Covering index for the windowed-heat subquery
+          // (WHERE last_counted_at >= ? GROUP BY username): both columns live in
+          // the index so the per-window unique-visitor count is computed
+          // index-only, without touching the table.
+          `CREATE INDEX IF NOT EXISTS idx_account_lookup_limits_counted_user
+             ON account_lookup_limits(last_counted_at, username)`,
           // Logged-in users (GitHub OAuth). Identity only for now; the lowercased
           // `login` lets us later link a user to their own `scores` row + comments.
           `CREATE TABLE IF NOT EXISTS users (
@@ -767,12 +801,14 @@ function toLeaderboardEntry(r: LeaderboardRow, now = Date.now()): LeaderboardEnt
 export async function getTrendingLeaderboard(
   limit = 100,
   minScore = 60,
+  window: LeaderboardWindow = "all",
 ): Promise<LeaderboardEntry[]> {
   const db = getClient();
   if (!db) return [];
   try {
     await ensureSchema(db);
     const now = Date.now();
+    const { recentCutoff, activeOnly } = resolveLeaderboardWindow(window, now);
     const res = await db.execute({
       sql: `SELECT s.username, s.display_name, s.avatar_url, s.profile_url,
                    s.final_score, s.tier, s.tags,
@@ -787,8 +823,9 @@ export async function getTrendingLeaderboard(
               WHERE last_counted_at >= ?
               GROUP BY username
             ) AS recent ON recent.username = s.username
-            WHERE s.hidden = 0 AND s.final_score >= ?`,
-      args: [now - TRENDING_LOOKUP_WINDOW_MS, minScore],
+            WHERE s.hidden = 0 AND s.final_score >= ?
+            ${activeOnly ? "AND recent.recent_lookup_count > 0" : ""}`,
+      args: [recentCutoff, minScore],
     });
     return rankTrending(
       res.rows.map((r) => ({
@@ -842,11 +879,13 @@ export async function getAllPublicUsernames(minScore = 60): Promise<PublicProfil
 export async function getLeaderboard(
   limit = 100,
   minScore = 60,
+  window: LeaderboardWindow = "all",
 ): Promise<LeaderboardEntry[]> {
   const db = getClient();
   if (!db) return [];
   try {
     await ensureSchema(db);
+    const { recentCutoff, activeOnly } = resolveLeaderboardWindow(window, Date.now());
     const res = await db.execute({
       sql: `SELECT s.username, s.display_name, s.avatar_url, s.profile_url,
                    s.final_score, s.tier, s.tags,
@@ -862,9 +901,10 @@ export async function getLeaderboard(
               GROUP BY username
             ) AS recent ON recent.username = s.username
             WHERE s.hidden = 0 AND s.final_score >= ?
+            ${activeOnly ? "AND recent.recent_lookup_count > 0" : ""}
             ORDER BY s.final_score DESC, s.scanned_at DESC
             LIMIT ?`,
-      args: [Date.now() - TRENDING_LOOKUP_WINDOW_MS, minScore, limit],
+      args: [recentCutoff, minScore, limit],
     });
     const now = Date.now();
     return res.rows.map((r) => toLeaderboardEntry(r as unknown as LeaderboardRow, now));
@@ -878,11 +918,16 @@ export async function getLeaderboard(
 export async function getHeatLeaderboard(
   limit = 100,
   minScore = 60,
+  window: LeaderboardWindow = "all",
 ): Promise<LeaderboardEntry[]> {
   const db = getClient();
   if (!db) return [];
   try {
     await ensureSchema(db);
+    const { recentCutoff, activeOnly } = resolveLeaderboardWindow(window, Date.now());
+    // "all" ranks by cumulative lookups; a window ranks by the unique-visitor
+    // count within that window so the order matches the heat figure shown.
+    const heatOrder = activeOnly ? "recent_lookup_count DESC" : "lookup_count DESC";
     const res = await db.execute({
       sql: `SELECT s.username, s.display_name, s.avatar_url, s.profile_url,
                    s.final_score, s.tier, s.tags,
@@ -898,9 +943,10 @@ export async function getHeatLeaderboard(
               GROUP BY username
             ) AS recent ON recent.username = s.username
             WHERE s.hidden = 0 AND s.final_score >= ?
-            ORDER BY lookup_count DESC, s.final_score DESC, s.scanned_at DESC
+            ${activeOnly ? "AND recent.recent_lookup_count > 0" : ""}
+            ORDER BY ${heatOrder}, s.final_score DESC, s.scanned_at DESC
             LIMIT ?`,
-      args: [Date.now() - TRENDING_LOOKUP_WINDOW_MS, minScore, limit],
+      args: [recentCutoff, minScore, limit],
     });
     const now = Date.now();
     return res.rows.map((r) => toLeaderboardEntry(r as unknown as LeaderboardRow, now));
@@ -912,11 +958,15 @@ export async function getHeatLeaderboard(
 
 /** Public 进步榜 board: accounts whose latest score beats their previous one,
  *  biggest gain first. No minScore floor — a 20→40 climb belongs here too. */
-export async function getProgressLeaderboard(limit = 100): Promise<LeaderboardEntry[]> {
+export async function getProgressLeaderboard(
+  limit = 100,
+  window: LeaderboardWindow = "all",
+): Promise<LeaderboardEntry[]> {
   const db = getClient();
   if (!db) return [];
   try {
     await ensureSchema(db);
+    const { recentCutoff, activeOnly } = resolveLeaderboardWindow(window, Date.now());
     const res = await db.execute({
       sql: `SELECT s.username, s.display_name, s.avatar_url, s.profile_url,
                    s.final_score, s.tier, s.tags, s.prev_score,
@@ -934,9 +984,10 @@ export async function getProgressLeaderboard(limit = 100): Promise<LeaderboardEn
             WHERE s.hidden = 0
               AND s.prev_score IS NOT NULL
               AND s.final_score > s.prev_score
+              ${activeOnly ? "AND recent.recent_lookup_count > 0" : ""}
             ORDER BY (s.final_score - s.prev_score) DESC, s.scanned_at DESC
             LIMIT ?`,
-      args: [Date.now() - TRENDING_LOOKUP_WINDOW_MS, limit],
+      args: [recentCutoff, limit],
     });
     const now = Date.now();
     return res.rows.map((r) => {
