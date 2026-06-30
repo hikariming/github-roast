@@ -4,6 +4,7 @@ import { DeveloperCount } from "@/components/DeveloperCount";
 import { HomeLeaderboard } from "@/components/HomeLeaderboard";
 import { Roaster } from "@/components/Roaster";
 import type { TierKey } from "@/lib/tier";
+import { SITE_URL } from "@/lib/site";
 
 // ISR: the homepage shell is fully static (the scan form, tier pills and copy are
 // locale-only; DeveloperCount fetches client-side; the leaderboard preview reads
@@ -43,10 +44,10 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
           {t("subtitle")}
         </p>
         <a
-          href="https://githubroast.dev"
+          href={SITE_URL}
           className="mt-2 text-sm font-bold tracking-wide text-orange-400 hover:text-orange-300"
         >
-          githubroast.dev
+          {SITE_URL.replace(/^https?:\/\//, "")}
         </a>
         <p className="mt-3 max-w-md text-zinc-400">{t("tagline")}</p>
         <DeveloperCount />
@@ -82,8 +83,8 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
           })}
         </p>
         <p className="mt-2">
-          <a href="https://githubroast.dev" className="font-bold text-orange-400 hover:text-orange-300">
-            githubroast.dev
+          <a href={SITE_URL} className="font-bold text-orange-400 hover:text-orange-300">
+            {SITE_URL.replace(/^https?:\/\//, "")}
           </a>
         </p>
       </footer>

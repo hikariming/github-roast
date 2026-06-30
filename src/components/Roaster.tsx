@@ -18,8 +18,14 @@ import { SponsorPill } from "./Sponsor";
 import { ShareCard } from "./ShareCard";
 import { TierAvatarFrame } from "./TierAvatarFrame";
 import { Turnstile, turnstileEnabled } from "./Turnstile";
+import { SITE_URL } from "@/lib/site";
 
-const SITE_URL = "https://githubroast.dev";
+// Client-side origin getter (already used by CopyBadge). SSR returns null,
+// but the client-only embed snippets are only generated after hydration.
+function getOrigin(): string {
+  if (typeof window !== "undefined") return window.location.origin;
+  return SITE_URL; // fallback for SSR
+}
 
 interface Display {
   score: number;
@@ -252,6 +258,7 @@ export function Roaster() {
           tier: tTier(`${TIER_KEY[display.tier]}.name`),
           tierLabel: display.tierLabel,
           beat: beatText,
+          siteUrl: getOrigin().replace(/^https?:\/\//, ""),
         })
       : "";
 
@@ -270,7 +277,8 @@ export function Roaster() {
   const copyCardEmbed = async () => {
     const u = scan?.metrics.username;
     if (!u) return;
-    const md = `[![GitHub Roast](${SITE_URL}/api/card/${u})](${SITE_URL}/u/${u})`;
+    const origin = getOrigin();
+    const md = `[![GitHub Roast](${origin}/api/card/${u})](${origin}/u/${u})`;
     try {
       await navigator.clipboard.writeText(md);
       setEmbedCopied(true);
@@ -492,8 +500,8 @@ export function Roaster() {
               <ShareMenu
                 link={
                   loadByoKey()
-                    ? SITE_URL
-                    : `${SITE_URL}/u/${scan.metrics.username}`
+                    ? getOrigin()
+                    : `${getOrigin()}/u/${scan.metrics.username}`
                 }
                 text={shareText}
                 onShareImage={shareImage}
@@ -519,7 +527,7 @@ export function Roaster() {
           {!roasting && (
             <div ref={badgeRef} className="mt-6 scroll-mt-6">
               <CopyBadge
-                baseUrl={SITE_URL}
+                baseUrl={getOrigin()}
                 username={scan.metrics.username}
                 version={display.score}
               />
@@ -542,6 +550,7 @@ export function Roaster() {
               tierLabel={display.tierLabel}
               beat={percentile?.beat ?? null}
               tags={tags ?? { zh: [], en: [] }}
+              siteUrl={getOrigin()}
             />
           </div>
         </div>
