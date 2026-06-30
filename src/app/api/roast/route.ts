@@ -168,11 +168,24 @@ function parseJudgeResult(raw: string, scan: ScanResult, lang: Lang): RoastJudge
 function sanitizeScan(scan: ScanResult): ScanResult {
   return {
     metrics: scan.metrics,
-    top_repos: (scan.top_repos ?? []).slice(0, 10).map((r) => ({
-      ...r,
-      description: r.description?.slice(0, 300) ?? null,
-      readme_excerpt: r.readme_excerpt?.slice(0, 500) ?? null,
-    })),
+    top_repos: (scan.top_repos ?? []).slice(0, 10).map((r) => {
+      const promptSummary = r.readme?.features?.prompt_summary;
+      return {
+        ...r,
+        description: r.description?.slice(0, 300) ?? null,
+        readme_excerpt: r.readme_excerpt?.slice(0, 1500) ?? null,
+        readme:
+          typeof promptSummary === "string" && r.readme
+            ? {
+                ...r.readme,
+                features: {
+                  ...r.readme.features,
+                  prompt_summary: promptSummary.slice(0, 1500),
+                },
+              }
+            : undefined,
+      };
+    }),
     recent_prs: (scan.recent_prs ?? []).slice(0, 50).map((p) => ({
       ...p,
       title: p.title?.slice(0, 200) ?? null,

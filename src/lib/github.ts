@@ -8,9 +8,18 @@
  */
 
 import { logRatio } from "./score";
-import type { ImpactRepo, RawMetrics, RecentPr, TopRepo } from "./types";
+import type {
+  ImpactRepo,
+  RawMetrics,
+  ReadmeFeatures,
+  RecentPr,
+  RepoReadme,
+  TopRepo,
+} from "./types";
 
 const GITHUB_API = "https://api.github.com";
+const README_FETCH_LIMIT = 1024 * 1024;
+const README_PROMPT_SUMMARY_LIMIT = 1500;
 
 /** Raised when the requested account does not exist (404). */
 export class AccountNotFoundError extends Error {}
@@ -43,6 +52,16 @@ interface RestRepo {
   // Topics are returned by default on the modern REST repos endpoint; absent on
   // older proxies, so optional. A high-signal official domain label.
   topics?: string[];
+}
+
+interface RestReadme {
+  path?: string;
+  sha?: string;
+  size?: number;
+  html_url?: string | null;
+  download_url?: string | null;
+  content?: string;
+  encoding?: string;
 }
 
 interface RestUser {
@@ -128,7 +147,10 @@ function isLikelyPlaceholderProject(repo: TopRepo, loginLower: string): boolean 
     return true;
   }
   const readme = (repo.readme_excerpt ?? "").toLowerCase();
-  return /\b(wip|todo|scratch project|playground only|learning notes)\b/.test(readme);
+  return (
+    (repo.readme?.features.placeholder_score ?? 0) >= 0.6 ||
+    /\b(wip|todo|scratch project|playground only|learning notes)\b/.test(readme)
+  );
 }
 
 /**
@@ -142,7 +164,8 @@ export function originalRepoQualityScore(
 ): number {
   if (repo.size <= 0) return 0;
 
-  const readme = meaningfulText(repo.readme_excerpt);
+  const readme = repo.readme?.features;
+  const readmeLen = readme?.length ?? meaningfulText(repo.readme_excerpt).length;
   const desc = meaningfulText(repo.description);
   const pushed = parseTs(repo.pushed_at);
   const ageDays = pushed
@@ -158,11 +181,25 @@ export function originalRepoQualityScore(
   if (repo.language) s += 0.15;
   if (desc.length >= 20) s += 0.15;
 
-  if (readme.length >= 800) s += 0.25;
-  else if (readme.length >= 300) s += 0.2;
-  else if (readme.length >= 120) s += 0.12;
+  if (readmeLen >= 800) s += 0.25;
+  else if (readmeLen >= 300) s += 0.2;
+  else if (readmeLen >= 120) s += 0.12;
 
-  if (/\b(install|usage|quickstart|quick start|api|demo|features?|deploy|architecture|test|screenshot)\b/i.test(readme)) {
+  if (
+    readme
+      ? readme.has_install ||
+        readme.has_usage ||
+        readme.has_api ||
+        readme.has_demo ||
+        readme.has_features ||
+        readme.has_deploy ||
+        readme.has_test ||
+        readme.has_architecture ||
+        readme.has_screenshot
+      : /\b(install|usage|quickstart|quick start|api|demo|features?|deploy|architecture|test|screenshot)\b/i.test(
+          repo.readme_excerpt ?? "",
+        )
+  ) {
     s += 0.1;
   }
 
@@ -173,7 +210,7 @@ export function originalRepoQualityScore(
   }
 
   if (isLikelyPlaceholderProject(repo, loginLower)) {
-    s *= readme.length >= 600 && repo.size >= 200 ? 0.55 : 0.25;
+    s *= readmeLen >= 600 && repo.size >= 200 ? 0.55 : 0.25;
   }
 
   return Math.round(Math.max(0, Math.min(s, 1)) * 100) / 100;
@@ -207,21 +244,232 @@ export function topStarredOriginalRepoQuality(
   };
 }
 
-async function fetchReadmeExcerpt(
-  owner: string,
-  repo: string,
-  limit = 400,
-): Promise<string | null> {
-  const data = await restGet<{ content?: string }>(
-    `repos/${owner}/${repo}/readme`,
-  ).catch(() => null);
-  if (!data || !data.content) return null;
+function cleanReadmeLine(line: string): string {
+  const trimmed = line.trim();
+  if (!trimmed || /^(\[!\[|!\[)/.test(trimmed)) return "";
+  return trimmed
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/[`*_>|#]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function textMatches(text: string, words: string[]): boolean {
+  return words.some((word) => new RegExp(`\\b${word}\\b`, "i").test(text));
+}
+
+function clampText(text: string, limit: number): string {
+  const clean = text.replace(/\s+/g, " ").trim();
+  return clean.length > limit ? `${clean.slice(0, limit - 1)}…` : clean;
+}
+
+export function parseReadmeFeatures(markdown: string): ReadmeFeatures {
+  const lines = markdown.replace(/\r\n?/g, "\n").replace(/<!--[\s\S]*?-->/g, "\n").split("\n");
+  const headings: { level: number; title: string }[] = [];
+  const sections: { title: string; text: string }[] = [];
+  let currentTitle = "intro";
+  let currentLines: string[] = [];
+  let inCode = false;
+  let hasScreenshotImage = false;
+
+  const pushSection = () => {
+    const text = currentLines.map(cleanReadmeLine).filter(Boolean).join(" ");
+    sections.push({ title: currentTitle, text });
+    currentLines = [];
+  };
+
+  for (const line of lines) {
+    if (/^\s*(```|~~~)/.test(line)) {
+      inCode = !inCode;
+      continue;
+    }
+    if (inCode) continue;
+    const imageText = [...line.matchAll(/!\[([^\]]*)\]\(([^)]+)\)/g)]
+      .map(([, alt, url]) => `${alt} ${url}`)
+      .join(" ");
+    if (
+      imageText &&
+      textMatches(`${cleanReadmeLine(line)} ${imageText}`, [
+        "screenshot",
+        "screenshots",
+        "screen",
+        "demo",
+        "preview",
+      ])
+    ) {
+      hasScreenshotImage = true;
+    }
+    const heading = line.match(/^(#{1,6})\s+(.+?)\s*#*\s*$/);
+    if (heading) {
+      pushSection();
+      currentTitle = cleanReadmeLine(heading[2]);
+      headings.push({ level: heading[1].length, title: currentTitle });
+      continue;
+    }
+    currentLines.push(line);
+  }
+  pushSection();
+
+  const usefulText = sections.map((s) => `${s.title} ${s.text}`).join(" ");
+  const length = meaningfulText(usefulText).length;
+  const signals = {
+    install: textMatches(usefulText, ["install", "installation", "setup"]),
+    usage: textMatches(usefulText, ["usage", "quickstart", "quick start", "examples?", "guide"]),
+    api: textMatches(usefulText, ["api", "sdk", "reference"]),
+    demo: textMatches(usefulText, ["demo", "preview", "playground"]),
+    features: textMatches(usefulText, ["features?"]),
+    deploy: textMatches(usefulText, ["deploy", "deployment"]),
+    test: textMatches(usefulText, ["test", "testing", "tests"]),
+    architecture: textMatches(usefulText, ["architecture", "design", "internals"]),
+    screenshot:
+      hasScreenshotImage || textMatches(usefulText, ["screenshot", "screenshots", "screen"]),
+  };
+  const placeholderHits = [
+    /\bwip\b/i,
+    /\btodo\b/i,
+    /\bscratch\b/i,
+    /\bplayground only\b/i,
+    /\blearning notes?\b/i,
+  ].filter((pattern) => pattern.test(usefulText)).length;
+  const signalCount = Object.values(signals).filter(Boolean).length;
+  const placeholder_score = Math.min(
+    1,
+    placeholderHits * 0.35 + (length < 300 && placeholderHits > 0 ? 0.3 : 0),
+  );
+  const content_depth_score = Math.min(
+    1,
+    (length >= 800 ? 0.35 : length >= 300 ? 0.2 : length >= 120 ? 0.1 : 0) +
+      Math.min(headings.length, 5) * 0.06 +
+      Math.min(signalCount, 5) * 0.07,
+  );
+  const title = headings.find((h) => h.level === 1)?.title ?? headings[0]?.title ?? null;
+  const intro =
+    sections.find((s) => s.title === "intro" && s.text)?.text ??
+    sections.find((s) => s.text)?.text ??
+    "";
+  const picked = sections
+    .filter((s) =>
+      textMatches(s.title, [
+        "install",
+        "installation",
+        "setup",
+        "usage",
+        "quickstart",
+        "quick start",
+        "api",
+        "architecture",
+        "design",
+        "test",
+        "demo",
+        "features?",
+        "deploy",
+        "deployment",
+      ]),
+    )
+    .slice(0, 4);
+  const promptParts = [
+    title ? `Title: ${title}` : "",
+    intro ? `Intro: ${clampText(intro, 350)}` : "",
+    headings.length ? `Sections: ${headings.slice(0, 12).map((h) => h.title).join(", ")}` : "",
+    ...picked.map((s) => `${s.title}: ${clampText(s.text, 220)}`),
+    signalCount
+      ? `Signals: ${Object.entries(signals)
+          .filter(([, present]) => present)
+          .map(([name]) => name)
+          .join(", ")}`
+      : "",
+  ].filter(Boolean);
+
+  return {
+    length,
+    heading_count: headings.length,
+    has_install: signals.install,
+    has_usage: signals.usage,
+    has_api: signals.api,
+    has_demo: signals.demo,
+    has_features: signals.features,
+    has_deploy: signals.deploy,
+    has_test: signals.test,
+    has_architecture: signals.architecture,
+    has_screenshot: signals.screenshot,
+    placeholder_score: Math.round(placeholder_score * 100) / 100,
+    content_depth_score: Math.round(content_depth_score * 100) / 100,
+    prompt_summary: clampText(promptParts.join("\n"), README_PROMPT_SUMMARY_LIMIT),
+  };
+}
+
+async function readTextWithLimit(
+  url: string,
+  limit: number,
+): Promise<{ text: string; truncated: boolean } | null> {
+  let res: Response;
   try {
-    const text = Buffer.from(data.content, "base64").toString("utf-8");
-    return text.split(/\s+/).join(" ").slice(0, limit);
+    res = await fetch(url, {
+      headers: { "User-Agent": "github-roast", Range: `bytes=0-${limit - 1}` },
+      cache: "no-store",
+    });
   } catch {
     return null;
   }
+  if (!res.ok) return null;
+  const reader = res.body?.getReader();
+  if (!reader) return null;
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  let truncated = false;
+  try {
+    while (total < limit) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (total + value.byteLength > limit) {
+        chunks.push(value.slice(0, limit - total));
+        truncated = true;
+        break;
+      }
+      chunks.push(value);
+      total += value.byteLength;
+    }
+    if (total >= limit) truncated = true;
+    if (truncated) await reader.cancel().catch(() => undefined);
+  } catch {
+    return null;
+  }
+  return {
+    text: Buffer.concat(chunks).toString("utf-8"),
+    truncated,
+  };
+}
+
+async function fetchReadmeDocument(owner: string, repo: string): Promise<RepoReadme | null> {
+  const data = await restGet<RestReadme>(
+    `repos/${owner}/${repo}/readme`,
+  ).catch(() => null);
+  if (!data) return null;
+
+  let markdown: string | null = null;
+  let truncated = (data.size ?? 0) > README_FETCH_LIMIT;
+  try {
+    if (data.content && data.encoding === "base64" && (data.size ?? 0) <= README_FETCH_LIMIT) {
+      markdown = Buffer.from(data.content.replace(/\s+/g, ""), "base64").toString("utf-8");
+    } else if (data.download_url) {
+      const raw = await readTextWithLimit(data.download_url, README_FETCH_LIMIT);
+      markdown = raw?.text ?? null;
+      truncated = truncated || (raw?.truncated ?? false);
+    }
+  } catch {
+    return null;
+  }
+  if (markdown === null) return null;
+  const features = parseReadmeFeatures(markdown);
+  return {
+    path: data.path ?? "README",
+    sha: data.sha ?? null,
+    size: data.size ?? markdown.length,
+    html_url: data.html_url ?? null,
+    truncated,
+    features,
+  };
 }
 
 /** Per-language byte breakdown for one repo (e.g. {Python: 12000, Cuda: 4000}),
@@ -906,14 +1154,13 @@ export async function collect(username: string): Promise<{
   // limit API calls — same top-6 budget as the README fetch).
   await Promise.all(
     topRepos.slice(0, 6).map(async (repo) => {
-      if (repo.stars > 0 || repo.name) {
-        const [readme, languages] = await Promise.all([
-          fetchReadmeExcerpt(login, repo.name),
-          fetchRepoLanguages(login, repo.name),
-        ]);
-        repo.readme_excerpt = readme;
-        repo.languages = languages;
-      }
+      const [readme, languages] = await Promise.all([
+        fetchReadmeDocument(login, repo.name),
+        fetchRepoLanguages(login, repo.name),
+      ]);
+      repo.readme = readme ?? undefined;
+      repo.readme_excerpt = readme?.features.prompt_summary ?? null;
+      repo.languages = languages;
     }),
   );
   const bestOriginalQuality = bestOriginalRepoQuality(topRepos, loginLower, now);

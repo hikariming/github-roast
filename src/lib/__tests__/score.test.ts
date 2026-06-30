@@ -9,6 +9,7 @@ import {
   isEcosystemImpactPr,
   isExternalTrivialFarmPr,
   originalRepoQualityScore,
+  parseReadmeFeatures,
   topStarredOriginalRepoQuality,
   type ContribRepoAgg,
 } from "../github";
@@ -380,6 +381,88 @@ describe("original project quality", () => {
       best_original_repo_quality_score: q,
     });
     expect(s.sub_scores.original_project_quality).toBeGreaterThanOrEqual(4.8);
+  });
+
+  it("scores structured README features instead of the prompt summary length", () => {
+    const features = parseReadmeFeatures(`
+# Project
+
+${"Intro copy with badges and screenshots. ".repeat(40)}
+
+## Installation
+
+Install the package and configure the service.
+
+## Usage
+
+Use the API to run tests and deploy the workflow.
+`);
+    expect(features.length).toBeGreaterThan(800);
+    expect(features.has_install).toBe(true);
+    expect(features.has_usage).toBe(true);
+    expect(features.prompt_summary.length).toBeLessThanOrEqual(1500);
+
+    const q = originalRepoQualityScore(
+      repo({
+        size: 1800,
+        readme: {
+          path: "README.md",
+          sha: "abc",
+          size: 2000,
+          html_url: null,
+          truncated: false,
+          features,
+        },
+        readme_excerpt: "Project summary.",
+      }),
+      "alice",
+      now,
+    );
+
+    expect(q).toBeGreaterThan(0.8);
+  });
+
+  it("uses the first non-empty H1 section as the README summary intro", () => {
+    const features = parseReadmeFeatures(`
+# Project
+
+A clear overview of what this project does and why it exists.
+
+## Installation
+
+Install the package.
+`);
+
+    expect(features.prompt_summary).toContain("A clear overview");
+  });
+
+  it("treats Quick Start as a usage signal", () => {
+    const features = parseReadmeFeatures(`
+# Project
+
+## Quick Start
+
+Run the CLI with the default config.
+`);
+
+    expect(features.has_usage).toBe(true);
+  });
+
+  it("does not count badges as screenshots", () => {
+    const badges = parseReadmeFeatures(`
+# Project
+
+[![CI](https://img.shields.io/badge/ci-passing-green.svg)](https://example.com)
+![license](https://img.shields.io/badge/license-MIT-blue.svg)
+`);
+    const screenshot = parseReadmeFeatures(`
+# Project
+
+![Screenshot](./assets/screenshot.png)
+`);
+
+    expect(badges.has_screenshot).toBe(false);
+    expect(screenshot.has_screenshot).toBe(true);
   });
 
   it("does not let stars alone max out original quality without project substance", () => {

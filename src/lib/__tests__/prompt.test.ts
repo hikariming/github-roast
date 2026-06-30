@@ -97,6 +97,35 @@ describe("buildRoastMessages", () => {
     expect(payload.judge_result).toMatchObject(judge);
   });
 
+  it("does not duplicate structured README summaries in the prompt payload", () => {
+    const [, user] = buildRoastMessages(
+      {
+        ...scan,
+        top_repos: [
+          {
+            name: "project",
+            readme_excerpt: "Structured summary",
+            readme: {
+              features: {
+                prompt_summary: "Structured summary",
+              },
+            },
+          },
+          {
+            name: "legacy",
+            readme_excerpt: "Legacy summary",
+          },
+        ],
+      } as unknown as ScanResult,
+      "zh",
+    );
+    const payload = JSON.parse(user.content.match(/```json\n([\s\S]*)\n```/)![1]);
+
+    expect(payload.top_repos[0].readme.features.prompt_summary).toBe("Structured summary");
+    expect(payload.top_repos[0].readme_excerpt).toBeUndefined();
+    expect(payload.top_repos[1].readme_excerpt).toBe("Legacy summary");
+  });
+
   it("requires the report body to translate internal fields into user-facing roast language", () => {
     const [zhSys] = buildRoastMessages(scan, "zh");
     expect(zhSys.content).toContain("展示层脱敏");
