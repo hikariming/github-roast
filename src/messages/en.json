@@ -131,10 +131,10 @@
     "cooldown": "Refresh available in {hours}h"
   },
   "detailMeta": {
-    "title": "{username} — {score}/100 · {tier} | Savage GitHub Roast",
+    "title": "{username} — {score}/100 · {tier} | ghfind",
     "descWithTags": "{tags} — see {username}'s full score report on ghfind.com.",
     "descPlain": "{username}'s GitHub value & trust report — ghfind.com.",
-    "notFoundTitle": "Account not found · Savage GitHub Roast"
+    "notFoundTitle": "Account not found · ghfind"
   },
   "roaster": {
     "inputPlaceholder": "Enter a GitHub username or profile URL",
@@ -181,7 +181,7 @@
     "copyLink": "Copy link",
     "copied": "Copied ✓",
     "native": "More…",
-    "siteName": "Savage GitHub Roast"
+    "siteName": "ghfind"
   },
   "badge": {
     "heading": "📌 Pin to your GitHub profile",
@@ -211,7 +211,7 @@
   "developerCount": "<n>{count, number}</n> developers have entered the arena ⚔️",
   "shareCard": {
     "beatLabel": "developers beaten",
-    "brand": "🔥 Savage GitHub Roast · see how you stack up"
+    "brand": "🔥 ghfind · see how you stack up"
   },
   "tiers": {
     "god": { "name": "GOD", "blurb": "Legendary · Hall of Fame" },

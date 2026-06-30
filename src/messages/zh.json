@@ -131,10 +131,10 @@
     "cooldown": "{hours} 小时后可重新检测"
   },
   "detailMeta": {
-    "title": "{username} — {score}/100 · {tier} | 毒舌 GitHub 评分",
+    "title": "{username} — {score}/100 · {tier} | ghfind",
     "descWithTags": "{tags} —— 在 ghfind.com 查看 {username} 的完整评分报告。",
     "descPlain": "{username} 的 GitHub 价值评分报告 —— ghfind.com。",
-    "notFoundTitle": "查无此号 · 毒舌 GitHub 评分"
+    "notFoundTitle": "查无此号 · ghfind"
   },
   "roaster": {
     "inputPlaceholder": "输入 GitHub 用户名或主页链接",
@@ -181,7 +181,7 @@
     "copyLink": "复制链接",
     "copied": "已复制 ✓",
     "native": "系统分享…",
-    "siteName": "毒舌 GitHub 评分"
+    "siteName": "ghfind"
   },
   "badge": {
     "heading": "📌 贴到你的 GitHub 主页",
@@ -211,7 +211,7 @@
   "developerCount": "已经有 <n>{count, number}</n> 名开发者参与战斗 ⚔️",
   "shareCard": {
     "beatLabel": "超越的开发者",
-    "brand": "🔥 毒舌 GitHub 评分 · 来测测你的含金量"
+    "brand": "🔥 ghfind · 来测测你的含金量"
   },
   "tiers": {
     "god": { "name": "夯", "blurb": "封神 · 殿堂级标杆" },
