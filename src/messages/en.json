@@ -148,6 +148,7 @@
   },
   "detail": {
     "back": "← Back to Hall of Fame",
+    "backfilling": "🔍 Fetching their open-source footprint (repos / languages / contributions)…",
     "rankTitle": "Your standing",
     "rankUnit": "/ of {total}",
     "rankUnranked": "Unranked (not enough data)",

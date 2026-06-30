@@ -148,6 +148,7 @@
   },
   "detail": {
     "back": "← 返回名人堂",
+    "backfilling": "🔍 正在补全 TA 的开源足迹（仓库 / 语言 / 贡献）…",
     "rankTitle": "我的位置",
     "rankUnit": "/ 共 {total} 人",
     "rankUnranked": "暂无排名（样本不足）",

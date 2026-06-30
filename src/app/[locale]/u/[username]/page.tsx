@@ -26,6 +26,8 @@ import { normLang } from "@/lib/lang";
 import type { SubScoreKey } from "@/lib/types";
 import { ProfileReactionsSection } from "@/components/ProfileReactionsSection";
 import { RescanButton } from "@/components/RescanButton";
+import { ProfileBackfill } from "@/components/ProfileBackfill";
+import { auth, authConfigured } from "@/lib/auth";
 
 // Profile comments must be fresh; score/roast data is still fetched from the DB
 // and remains cached at the persistence layer where applicable.
@@ -119,13 +121,18 @@ export default async function AccountPage({
   // visitor's language even when the full report exists only in the other one.
   // Empty for legacy rows — those still carry the one-liner inline in `roast`.
   const roastLine = lang === "en" ? d.roast_line.en : d.roast_line.zh;
-  const [similar, comments, snap, danmaku, rank] = await Promise.all([
+  const [similar, comments, snap, danmaku, rank, session] = await Promise.all([
     getSimilarAccounts(d.username, d.final_score, d.sub_scores),
     getProfileComments(d.username),
     getProfileSnapshot(d.username),
     getProfileDanmaku(d.username),
     getRank(d.final_score),
+    authConfigured() ? auth() : Promise.resolve(null),
   ]);
+  // Inline re-detect is self-service: only the signed-in owner sees it on their
+  // own profile. GitHub handles are case-insensitive, so compare normalized.
+  const isOwner =
+    session?.user?.login?.toLowerCase() === d.username.toLowerCase();
   // Milestone hint: points to the next tier line, plus the "beat %" so far.
   const promo = nextTier(d.final_score);
   const promoGap = promo ? (promo.threshold - d.final_score).toFixed(2) : null;
@@ -299,7 +306,9 @@ export default async function AccountPage({
             ? t("milestoneNext", { tier: promoTierName!, gap: promoGap! })
             : t("milestoneCapped")}
         </div>
-        <RescanButton username={d.username} scannedAt={d.scanned_at} className="mt-3" />
+        {isOwner && (
+          <RescanButton username={d.username} scannedAt={d.scanned_at} className="mt-3" />
+        )}
       </div>
 
       <Suspense
@@ -319,6 +328,10 @@ export default async function AccountPage({
 
         {/* Right: evidence + report */}
         <div className="flex min-w-0 flex-1 flex-col">
+
+      {/* Legacy profiles predate the evidence snapshot — fetch it on visit so the
+          repo/language/contribution sections fill in instead of staying blank. */}
+      {!snap && <ProfileBackfill username={d.username} />}
 
       {/* Notable contributions — popular repos the user has shipped to (the
           hardest evidence behind the ecosystem-impact dimension). Surfaced first
