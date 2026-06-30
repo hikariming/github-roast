@@ -92,9 +92,13 @@ const COMMENT_LABELS: Record<FloatingCommentLang, FloatingCommentLabels> = {
   },
 };
 
-const FLOATING_COMMENT_SIDE_ROOM = "calc((100vw - 42rem) / 2 - 2rem)";
+// The detail page content is a two-column layout capped at max-w-4xl (56rem),
+// centered. Bubbles live purely in the side gutters that flank that column —
+// never overlapping it — and render from the `xl` breakpoint (≥1280px) up,
+// where each gutter is wide enough to hold them clear of the content.
+const FLOATING_COMMENT_SIDE_ROOM = "calc((100vw - 56rem) / 2 - 2rem)";
 const FLOATING_COMMENT_CENTER_GAP = "1rem";
-const FLOATING_COMMENT_CENTER_HALF_WIDTH = "21rem";
+const FLOATING_COMMENT_CENTER_HALF_WIDTH = "28rem";
 const MOBILE_DANMAKU_MIN_COUNT = 16;
 const MOBILE_DANMAKU_TOPS = [
   "0.5rem",
@@ -302,7 +306,7 @@ export function FloatingCommentBubbles({
 
   return (
     <>
-      <div className="pointer-events-none absolute inset-0 z-0 hidden lg:block">
+      <div className="pointer-events-none absolute inset-0 z-0 hidden overflow-hidden xl:block">
         {bubbles.map((bubble, index) => (
           <div
             key={`${bubble.side}-${index}`}
@@ -319,7 +323,7 @@ export function FloatingCommentBubbles({
         ))}
       </div>
 
-      <div className="pointer-events-none fixed inset-x-0 top-16 z-20 h-72 overflow-hidden lg:hidden">
+      <div className="pointer-events-none fixed inset-x-0 top-16 z-20 h-72 overflow-hidden xl:hidden">
         {mobileDanmakuBubbles.map((bubble, index) => (
           <div
             key={`mobile-${bubble.side}-${index}-${bubble.text}`}
