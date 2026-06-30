@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, type FormEvent, useState } from "react";
+import { type CSSProperties, type FormEvent, useEffect, useState } from "react";
 import { Link } from "@/i18n/navigation";
 import {
   COMMENT_MAX_LENGTH,
@@ -8,6 +8,11 @@ import {
   type CreateProfileCommentResponse,
   type ProfileComment,
 } from "@/lib/comments";
+import {
+  DANMAKU_MIN_DISPLAY,
+  interleaveDanmakuByLang,
+  type DanmakuLine,
+} from "@/lib/danmaku";
 
 type FloatingCommentAuthor =
   | { type: "anonymous" }
@@ -37,156 +42,25 @@ interface FloatingCommentLabels {
   sending: string;
 }
 
-const INITIAL_COMMENT_BUBBLES: Record<FloatingCommentLang, FloatingCommentBubble[]> = {
-  zh: [
-    {
-      side: "left",
-      author: { type: "github", username: "gaearon" },
-      text: "这才是开源履历该有的含金量",
-      top: "3.5rem",
-      laneOffset: "1.4rem",
-      delay: "-1.2s",
-      duration: "9s",
-    },
-    {
-      side: "left",
-      author: { type: "anonymous" },
-      text: "项目质量很硬",
-      top: "16rem",
-      laneOffset: "4.6rem",
-      delay: "-4.1s",
-      duration: "11s",
-    },
-    {
-      side: "left",
-      author: { type: "github", username: "yyx990803" },
-      text: "社区影响力拉满",
-      top: "28rem",
-      laneOffset: "0rem",
-      delay: "-2.6s",
-      duration: "10s",
-    },
-    {
-      side: "left",
-      author: { type: "anonymous" },
-      text: "这个标签比简历还会说话",
-      top: "47rem",
-      laneOffset: "5.8rem",
-      delay: "-6.5s",
-      duration: "12s",
-    },
-    {
-      side: "right",
-      author: { type: "github", username: "sindresorhus" },
-      text: "一看就是榜单常驻选手",
-      top: "6.8rem",
-      laneOffset: "3.2rem",
-      delay: "-3s",
-      duration: "10.5s",
-    },
-    {
-      side: "right",
-      author: { type: "anonymous" },
-      text: "分数和关注度都站得住",
-      top: "19rem",
-      laneOffset: "0.6rem",
-      delay: "-5.4s",
-      duration: "9.5s",
-    },
-    {
-      side: "right",
-      author: { type: "github", username: "torvalds" },
-      text: "值得点进 GitHub 看看",
-      top: "36rem",
-      laneOffset: "4.8rem",
-      delay: "-1.8s",
-      duration: "12.5s",
-    },
-    {
-      side: "right",
-      author: { type: "anonymous" },
-      text: "这个评分很难不服",
-      top: "54rem",
-      laneOffset: "1.8rem",
-      delay: "-7.2s",
-      duration: "11.5s",
-    },
-  ],
-  en: [
-    {
-      side: "left",
-      author: { type: "github", username: "gaearon" },
-      text: "This open-source track record has real weight",
-      top: "3.5rem",
-      laneOffset: "1.4rem",
-      delay: "-1.2s",
-      duration: "9s",
-    },
-    {
-      side: "left",
-      author: { type: "anonymous" },
-      text: "Project quality checks out",
-      top: "16rem",
-      laneOffset: "4.6rem",
-      delay: "-4.1s",
-      duration: "11s",
-    },
-    {
-      side: "left",
-      author: { type: "github", username: "yyx990803" },
-      text: "Community signal is loud",
-      top: "28rem",
-      laneOffset: "0rem",
-      delay: "-2.6s",
-      duration: "10s",
-    },
-    {
-      side: "left",
-      author: { type: "anonymous" },
-      text: "Those tags say more than a resume",
-      top: "47rem",
-      laneOffset: "5.8rem",
-      delay: "-6.5s",
-      duration: "12s",
-    },
-    {
-      side: "right",
-      author: { type: "github", username: "sindresorhus" },
-      text: "Looks like a Hall of Fame regular",
-      top: "6.8rem",
-      laneOffset: "3.2rem",
-      delay: "-3s",
-      duration: "10.5s",
-    },
-    {
-      side: "right",
-      author: { type: "anonymous" },
-      text: "Score and attention both hold up",
-      top: "19rem",
-      laneOffset: "0.6rem",
-      delay: "-5.4s",
-      duration: "9.5s",
-    },
-    {
-      side: "right",
-      author: { type: "github", username: "torvalds" },
-      text: "Worth opening the GitHub profile",
-      top: "36rem",
-      laneOffset: "4.8rem",
-      delay: "-1.8s",
-      duration: "12.5s",
-    },
-    {
-      side: "right",
-      author: { type: "anonymous" },
-      text: "Hard to argue with this score",
-      top: "54rem",
-      laneOffset: "1.8rem",
-      delay: "-7.2s",
-      duration: "11.5s",
-    },
-  ],
-};
+// Spread positions for the floating wall — bubbles cycle through these so any
+// mix of real comments + AI danmaku stays scattered down both sides.
+const TOP_SLOTS = [
+  "3.5rem",
+  "10rem",
+  "16rem",
+  "24rem",
+  "28rem",
+  "36rem",
+  "41rem",
+  "47rem",
+  "54rem",
+  "60rem",
+  "73rem",
+  "88rem",
+];
+const LANE_OFFSETS = ["1.4rem", "4.6rem", "0rem", "5.8rem", "3.2rem", "0.6rem", "4.8rem", "1.8rem"];
+const DELAYS = ["-1.2s", "-4.1s", "-2.6s", "-6.5s", "-3s", "-5.4s", "-1.8s", "-7.2s"];
+const DURATIONS = ["9s", "11s", "10s", "12s", "10.5s", "9.5s", "12.5s", "11.5s"];
 
 const ANONYMOUS_LABEL: Record<FloatingCommentLang, string> = {
   zh: "匿名",
@@ -262,22 +136,20 @@ function repeatForMobileDanmaku(bubbles: FloatingCommentBubble[]): FloatingComme
   );
 }
 
-function floatingCommentFromProfileComment(
-  comment: ProfileComment,
+/** Lay out a flat list of {author, text} items into scattered floating bubbles. */
+function layoutBubble(
+  author: FloatingCommentAuthor,
+  text: string,
   index: number,
 ): FloatingCommentBubble {
-  const rightSide = index % 2 === 0;
-  const topSlots = ["10rem", "24rem", "41rem", "60rem", "73rem", "88rem"];
-  const laneOffsets = ["0.8rem", "4.4rem", "2.1rem", "6rem", "0rem", "3.5rem"];
-
   return {
-    side: rightSide ? "right" : "left",
-    author: comment.author,
-    text: comment.text,
-    top: topSlots[index % topSlots.length],
-    laneOffset: laneOffsets[index % laneOffsets.length],
-    delay: "0s",
-    duration: "10s",
+    side: index % 2 === 0 ? "right" : "left",
+    author,
+    text,
+    top: TOP_SLOTS[index % TOP_SLOTS.length],
+    laneOffset: LANE_OFFSETS[index % LANE_OFFSETS.length],
+    delay: DELAYS[index % DELAYS.length],
+    duration: DURATIONS[index % DURATIONS.length],
   };
 }
 
@@ -347,10 +219,12 @@ function FloatingCommentInlineAuthor({
 
 export function FloatingCommentBubbles({
   initialComments,
+  initialDanmaku = [],
   lang,
   profileUsername,
 }: {
   initialComments: ProfileComment[];
+  initialDanmaku?: DanmakuLine[];
   lang: FloatingCommentLang;
   profileUsername: string;
 }) {
@@ -359,12 +233,41 @@ export function FloatingCommentBubbles({
   const [draft, setDraft] = useState("");
   const [anonymous, setAnonymous] = useState(true);
   const [comments, setComments] = useState<ProfileComment[]>(initialComments);
+  const [danmaku, setDanmaku] = useState<DanmakuLine[]>(initialDanmaku);
   const [sending, setSending] = useState(false);
   const [failed, setFailed] = useState(false);
-  const bubbles = [
-    ...INITIAL_COMMENT_BUBBLES[lang],
-    ...comments.map(floatingCommentFromProfileComment),
+
+  // When a profile has few real comments, top up the wall with AI danmaku
+  // (always anonymous). Fetch-and-persist lazily the first time, only if none
+  // were cached server-side and there still aren't enough real comments.
+  const needsDanmaku = comments.length < DANMAKU_MIN_DISPLAY;
+  useEffect(() => {
+    if (!needsDanmaku || danmaku.length > 0) return;
+    let cancelled = false;
+    fetch(`/api/profile-danmaku/${encodeURIComponent(profileUsername)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { lines?: DanmakuLine[] } | null) => {
+        if (!cancelled && data?.lines?.length) setDanmaku(data.lines);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [needsDanmaku, danmaku.length, profileUsername]);
+
+  // The danmaku wall is intentionally bilingual for everyone: show both the zh
+  // and en lines (interleaved), so an English visitor never faces an all-Chinese
+  // wall and the page reads like a global crowd reacting.
+  const items: { author: FloatingCommentAuthor; text: string }[] = [
+    ...comments.map((c) => ({ author: c.author, text: c.text })),
+    ...(needsDanmaku
+      ? interleaveDanmakuByLang(danmaku).map((d) => ({
+          author: { type: "anonymous" } as FloatingCommentAuthor,
+          text: d.text,
+        }))
+      : []),
   ];
+  const bubbles = items.map((item, index) => layoutBubble(item.author, item.text, index));
   const mobileDanmakuBubbles = repeatForMobileDanmaku(bubbles);
   const trimmedDraft = normalizeCommentText(draft);
   const canSend = Boolean(trimmedDraft) && !sending;

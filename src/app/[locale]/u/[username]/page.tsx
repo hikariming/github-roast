@@ -8,6 +8,7 @@ import { Link } from "@/i18n/navigation";
 import {
   getAccountDetail,
   getProfileComments,
+  getProfileDanmaku,
   getProfileSnapshot,
   getSimilarAccounts,
 } from "@/lib/db";
@@ -115,10 +116,11 @@ export default async function AccountPage({
   // visitor's language even when the full report exists only in the other one.
   // Empty for legacy rows — those still carry the one-liner inline in `roast`.
   const roastLine = lang === "en" ? d.roast_line.en : d.roast_line.zh;
-  const [similar, comments, snap] = await Promise.all([
+  const [similar, comments, snap, danmaku] = await Promise.all([
     getSimilarAccounts(d.username, d.final_score, d.sub_scores),
     getProfileComments(d.username),
     getProfileSnapshot(d.username),
+    getProfileDanmaku(d.username),
   ]);
   const detailPath = locale === "en" ? `/en/u/${d.username}` : `/u/${d.username}`;
 
@@ -159,6 +161,7 @@ export default async function AccountPage({
         lang={lang}
         profileUsername={d.username}
         initialComments={comments}
+        initialDanmaku={danmaku}
       />
       <div className="relative z-10 flex w-full max-w-2xl flex-col">
         <JsonLd

@@ -21,6 +21,7 @@ import {
   type ProfileComment,
   type ProfileCommentAuthor,
 } from "./comments";
+import { normalizeDanmakuLines, type DanmakuLine } from "./danmaku";
 import {
   emptyReactionCounts,
   isProfileReaction,
@@ -203,6 +204,15 @@ function ensureSchema(db: Client): Promise<void> {
            )`,
           `CREATE INDEX IF NOT EXISTS idx_profile_snapshots_username_scanned
              ON profile_snapshots(username, scanned_at DESC)`,
+          // AI-generated anonymous danmaku for the detail page, one row per
+          // account (latest wins). Persisted so repeat views never re-spend LLM
+          // credit. `lines` is a JSON DanmakuLine[] ({zh,en}).
+          `CREATE TABLE IF NOT EXISTS profile_danmaku (
+             username   TEXT PRIMARY KEY,
+             lines      TEXT NOT NULL,
+             created_at INTEGER NOT NULL,
+             version    TEXT
+           )`,
           `CREATE TABLE IF NOT EXISTS account_stats (
              username        TEXT PRIMARY KEY,
              lookup_count    INTEGER NOT NULL DEFAULT 0,
@@ -584,6 +594,54 @@ export async function getProfileSnapshot(
   } catch (e) {
     console.error("getProfileSnapshot failed:", e);
     return null;
+  }
+}
+
+/** Persisted AI danmaku for an account (empty if none generated yet). */
+export async function getProfileDanmaku(username: string): Promise<DanmakuLine[]> {
+  const db = getClient();
+  if (!db) return [];
+  try {
+    await ensureSchema(db);
+    const res = await db.execute({
+      sql: `SELECT lines FROM profile_danmaku WHERE username = ? LIMIT 1`,
+      args: [username.toLowerCase()],
+    });
+    const r = res.rows[0];
+    if (!r) return [];
+    try {
+      return normalizeDanmakuLines(JSON.parse((r.lines as string) || "[]"));
+    } catch {
+      return [];
+    }
+  } catch (e) {
+    console.error("getProfileDanmaku failed:", e);
+    return [];
+  }
+}
+
+/** Persist AI danmaku for an account (latest wins). Fire-and-forget tolerant —
+ * never blocks the request that triggered generation. */
+export async function saveProfileDanmaku(
+  username: string,
+  lines: DanmakuLine[],
+): Promise<void> {
+  const db = getClient();
+  if (!db || lines.length === 0) return;
+  try {
+    await ensureSchema(db);
+    await db.execute({
+      sql: `INSERT OR REPLACE INTO profile_danmaku (username, lines, created_at, version)
+            VALUES (?, ?, ?, ?)`,
+      args: [
+        username.toLowerCase(),
+        JSON.stringify(lines),
+        Date.now(),
+        SCORE_CACHE_VERSION,
+      ],
+    });
+  } catch (e) {
+    console.error("saveProfileDanmaku failed:", e);
   }
 }
 
