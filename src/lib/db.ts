@@ -21,7 +21,6 @@ import {
   type ProfileComment,
   type ProfileCommentAuthor,
 } from "./comments";
-import { normalizeDanmakuLines, type DanmakuLine } from "./danmaku";
 import { extractFacets, type FacetType } from "./facets";
 import {
   emptyReactionCounts,
@@ -232,9 +231,9 @@ function ensureSchema(db: Client): Promise<void> {
            )`,
           `CREATE INDEX IF NOT EXISTS idx_profile_snapshots_username_scanned
              ON profile_snapshots(username, scanned_at DESC)`,
-          // AI-generated anonymous danmaku for the detail page, one row per
-          // account (latest wins). Persisted so repeat views never re-spend LLM
-          // credit. `lines` is a JSON DanmakuLine[] ({zh,en}).
+          // Legacy: AI-generated anonymous danmaku for the detail page. The
+          // feature was removed; this table is no longer read or written and is
+          // kept only so existing databases (which may hold rows) stay valid.
           `CREATE TABLE IF NOT EXISTS profile_danmaku (
              username   TEXT PRIMARY KEY,
              lines      TEXT NOT NULL,
@@ -614,6 +613,28 @@ export async function hasProfileSnapshot(username: string): Promise<boolean> {
   }
 }
 
+/** Numeric metrics pulled out of the stored `metrics` blob for the specialty
+ * "brag cards" (contributor / PR / trajectory / signature-work). All coerced to
+ * safe numbers so a card never renders `NaN` for a scan cached before a field
+ * existed. */
+export interface ProfileCardMetrics {
+  account_age_years: number;
+  created_at: string | null;
+  followers: number;
+  public_repos: number;
+  total_stars: number;
+  max_stars: number;
+  original_repo_count: number;
+  merged_pr_count: number;
+  impact_pr_count: number;
+  verified_impact_pr_count: number;
+  core_impact_pr_count: number;
+  impact_repo_count: number;
+  max_impact_repo_stars: number;
+  last_year_contributions: number;
+  contribution_years_active: number;
+}
+
 /** Parsed view of the latest profile snapshot, for the detail page's evidence
  * blocks (contributions, featured work, stack, orgs). Read-only/slow path —
  * decoupled from the lean `getAccountDetail` hot read. */
@@ -624,6 +645,7 @@ export interface ProfileSnapshotView {
   organizations: string[];
   bio: string | null;
   company: string | null;
+  metrics: ProfileCardMetrics;
   scanned_at: number;
 }
 
@@ -658,13 +680,32 @@ export async function getProfileSnapshot(
     if (!r) return null;
     let bio: string | null = null;
     let company: string | null = null;
+    let m: Record<string, unknown> = {};
     try {
-      const m = JSON.parse((r.metrics as string) || "{}");
+      m = JSON.parse((r.metrics as string) || "{}") as Record<string, unknown>;
       bio = typeof m.bio === "string" && m.bio ? m.bio : null;
       company = typeof m.company === "string" && m.company ? m.company : null;
     } catch {
-      // leave bio/company null
+      // leave bio/company null, metrics blank
     }
+    const num = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+    const metrics: ProfileCardMetrics = {
+      account_age_years: num(m.account_age_years),
+      created_at: typeof m.created_at === "string" ? m.created_at : null,
+      followers: num(m.followers),
+      public_repos: num(m.public_repos),
+      total_stars: num(m.total_stars),
+      max_stars: num(m.max_stars),
+      original_repo_count: num(m.original_repo_count),
+      merged_pr_count: num(m.merged_pr_count),
+      impact_pr_count: num(m.impact_pr_count),
+      verified_impact_pr_count: num(m.verified_impact_pr_count),
+      core_impact_pr_count: num(m.core_impact_pr_count),
+      impact_repo_count: num(m.impact_repo_count),
+      max_impact_repo_stars: num(m.max_impact_repo_stars),
+      last_year_contributions: num(m.last_year_contributions),
+      contribution_years_active: num(m.contribution_years_active),
+    };
     return {
       top_repos: parseJsonArray<TopRepo>(r.top_repos),
       impact_repos: parseJsonArray<ImpactRepo>(r.impact_repos),
@@ -672,6 +713,7 @@ export async function getProfileSnapshot(
       organizations: parseJsonArray<string>(r.organizations),
       bio,
       company,
+      metrics,
       scanned_at: Number(r.scanned_at),
     };
   } catch (e) {
@@ -704,54 +746,6 @@ export async function listSnapshotUsernames(
   } catch (e) {
     console.error("listSnapshotUsernames failed:", e);
     return [];
-  }
-}
-
-/** Persisted AI danmaku for an account (empty if none generated yet). */
-export async function getProfileDanmaku(username: string): Promise<DanmakuLine[]> {
-  const db = getClient();
-  if (!db) return [];
-  try {
-    await ensureSchema(db);
-    const res = await db.execute({
-      sql: `SELECT lines FROM profile_danmaku WHERE username = ? LIMIT 1`,
-      args: [username.toLowerCase()],
-    });
-    const r = res.rows[0];
-    if (!r) return [];
-    try {
-      return normalizeDanmakuLines(JSON.parse((r.lines as string) || "[]"));
-    } catch {
-      return [];
-    }
-  } catch (e) {
-    console.error("getProfileDanmaku failed:", e);
-    return [];
-  }
-}
-
-/** Persist AI danmaku for an account (latest wins). Fire-and-forget tolerant —
- * never blocks the request that triggered generation. */
-export async function saveProfileDanmaku(
-  username: string,
-  lines: DanmakuLine[],
-): Promise<void> {
-  const db = getClient();
-  if (!db || lines.length === 0) return;
-  try {
-    await ensureSchema(db);
-    await db.execute({
-      sql: `INSERT OR REPLACE INTO profile_danmaku (username, lines, created_at, version)
-            VALUES (?, ?, ?, ?)`,
-      args: [
-        username.toLowerCase(),
-        JSON.stringify(lines),
-        Date.now(),
-        SCORE_CACHE_VERSION,
-      ],
-    });
-  } catch (e) {
-    console.error("saveProfileDanmaku failed:", e);
   }
 }
 

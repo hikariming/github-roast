@@ -1,12 +1,25 @@
 import { readFile } from "node:fs/promises";
 import { ImageResponse } from "next/og";
-import { getAccountDetail, getPercentile } from "@/lib/db";
+import QRCode from "qrcode";
+import { getAccountDetail, getPercentile, getProfileSnapshot } from "@/lib/db";
 import { BADGE_COLOR, TIER_EN, TIER_LABEL_EN } from "@/lib/badge";
 import { beatPercent } from "@/lib/percentile";
-import { SPONSOR } from "@/lib/sponsor";
-import { tierAvatarFrame } from "@/lib/tier";
-import type { TierAvatarFramePlacement } from "@/lib/tier";
+import { SITE_URL } from "@/lib/site";
 import type { Tier } from "@/lib/types";
+import {
+  Brand,
+  H,
+  OgAvatarFrame,
+  PALETTES,
+  Shell,
+  W,
+  parseQr,
+  parseTheme,
+  parseVariant,
+  renderVariant,
+  variantHasData,
+} from "./cards";
+import type { Identity } from "./cards";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,67 +29,6 @@ const USERNAME_RE = /^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$/;
 // Long edge cache: GitHub README views are served by the CDN (and camo) — the
 // PNG is generated at most ~once per window per account. Keeps the bill flat.
 const CDN_CACHE = "public, max-age=0, s-maxage=21600, stale-while-revalidate=86400";
-
-const W = 1200;
-const H = 630;
-
-type CardTheme = "dark" | "light";
-
-const DARK_BG = "#0a0a0b";
-
-interface CardPalette {
-  mode: CardTheme;
-  bg: string;
-  fg: string;
-  muted: string;
-  subtle: string;
-  weak: string;
-  handleBg: string;
-  avatarBg: string;
-  avatarBorder: string;
-  emojiBg: string;
-  tagBg: string;
-  tagBorder: string;
-  tagText: string;
-}
-
-const PALETTES: Record<CardTheme, CardPalette> = {
-  dark: {
-    mode: "dark",
-    bg: DARK_BG,
-    fg: "#ffffff",
-    muted: "#a1a1aa",
-    subtle: "#71717a",
-    weak: "#52525b",
-    handleBg: "rgba(0,0,0,0.35)",
-    avatarBg: "#27272a",
-    avatarBorder: "#050505",
-    emojiBg: DARK_BG,
-    tagBg: "rgba(249,115,22,0.10)",
-    tagBorder: "rgba(251,146,60,0.30)",
-    tagText: "#fed7aa",
-  },
-  light: {
-    mode: "light",
-    bg: "#f6f8fb",
-    fg: "#18181b",
-    muted: "#52525b",
-    subtle: "#737373",
-    weak: "#52525b",
-    handleBg: "rgba(255,255,255,0.86)",
-    avatarBg: "#e5e7eb",
-    avatarBorder: "#ffffff",
-    emojiBg: "#ffffff",
-    tagBg: "rgba(249,115,22,0.10)",
-    tagBorder: "rgba(234,88,12,0.24)",
-    tagText: "#c2410c",
-  },
-};
-
-function parseTheme(req: Request): CardTheme {
-  const raw = new URL(req.url).searchParams.get("theme");
-  return raw === "light" ? "light" : "dark";
-}
 
 // Module-cache the (tiny, ~30KB each) Latin fonts across warm invocations.
 let fontCache: { name: string; data: Buffer; weight: 400 | 800; style: "normal" }[] | null = null;
@@ -107,6 +59,37 @@ async function avatarDataUrl(url: string | null): Promise<string | null> {
   }
 }
 
+/** Tier-tinted QR module color that contrasts with the (transparent) card behind
+ * it: blend the tier hue toward white on dark cards, toward black on light cards.
+ * Keeps the rank's color while staying scannable on either theme. */
+function qrModuleColor(hex: string, mode: "dark" | "light"): string {
+  const m = /^#?([0-9a-fA-F]{6})$/.exec(hex.trim());
+  if (!m) return mode === "dark" ? "#ffffff" : "#000000";
+  const n = parseInt(m[1], 16);
+  const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  const target = mode === "dark" ? 255 : 0;
+  const f = mode === "dark" ? 0.55 : 0.3;
+  const out = ch.map((c) => Math.round(c * (1 - f) + target * f));
+  return `#${((1 << 24) | (out[0] << 16) | (out[1] << 8) | out[2]).toString(16).slice(1)}`;
+}
+
+/** QR of the profile page as a PNG data URL, or null on failure. Transparent
+ * background (`light: #00000000`) so the card shows through; `dark` is the
+ * tier-tinted module color. "M" keeps the matrix small so modules stay chunky
+ * and scannable at the card's corner size. */
+async function qrDataUrl(username: string, dark: string): Promise<string | null> {
+  try {
+    return await QRCode.toDataURL(`${SITE_URL}/u/${username}`, {
+      margin: 1,
+      width: 300,
+      errorCorrectionLevel: "M",
+      color: { dark, light: "#00000000" },
+    });
+  } catch {
+    return null;
+  }
+}
+
 function png(element: React.ReactElement, fontList: Awaited<ReturnType<typeof fonts>>) {
   return new ImageResponse(element, {
     width: W,
@@ -115,148 +98,6 @@ function png(element: React.ReactElement, fontList: Awaited<ReturnType<typeof fo
     emoji: "twemoji",
     headers: { "Cache-Control": CDN_CACHE },
   });
-}
-
-function Shell({
-  glow,
-  palette,
-  children,
-}: {
-  glow: string;
-  palette: CardPalette;
-  children: React.ReactNode;
-}) {
-  const backgroundImage =
-    palette.mode === "light"
-      ? `radial-gradient(800px circle at 94% -10%, ${glow}, transparent 58%), linear-gradient(180deg, #ffffff 0%, ${palette.bg} 74%)`
-      : `radial-gradient(900px circle at 95% -10%, ${glow}, transparent 60%)`;
-  return (
-    <div
-      style={{
-        width: W,
-        height: H,
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-        padding: 52,
-        backgroundColor: palette.bg,
-        backgroundImage,
-        color: palette.fg,
-        fontFamily: "Inter",
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-function Brand({ palette }: { palette: CardPalette }) {
-  return (
-    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 22 }}>
-      <div style={{ display: "flex", color: palette.subtle }}>
-        GitHub Roast ·{" "}
-        <span style={{ color: "#fb923c", fontWeight: 800, marginLeft: 6 }}>ghfind.com</span>
-      </div>
-      <div style={{ display: "flex", color: palette.subtle }}>Powered by {SPONSOR.name}</div>
-    </div>
-  );
-}
-
-function OgAvatarFrame({
-  username,
-  avatar,
-  tier,
-  color,
-  palette,
-}: {
-  username: string;
-  avatar: string | null;
-  tier: Tier;
-  color: string;
-  palette: CardPalette;
-}) {
-  const frame = tierAvatarFrame(tier);
-  const emojiBox = frame.emojiSize === "large" ? 48 : 34;
-  const emojiFont = frame.emojiSize === "large" ? 32 : 22;
-  const center = (152 - emojiBox) / 2;
-  const side = -emojiBox / 2;
-  const corner = frame.emojiSize === "large" ? 0 : 6;
-  const positions: Record<TierAvatarFramePlacement, React.CSSProperties> = {
-    top: { left: center, top: side },
-    "top-right": { right: corner, top: corner },
-    right: { right: side, top: center },
-    "bottom-right": { right: corner, bottom: corner },
-    bottom: { left: center, bottom: side },
-    "bottom-left": { left: corner, bottom: corner },
-    left: { left: side, top: center },
-    "top-left": { left: corner, top: corner },
-  };
-
-  return (
-    <div
-      style={{
-        position: "relative",
-        display: "flex",
-        width: 152,
-        height: 152,
-        borderRadius: 9999,
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: `${color}1A`,
-        boxShadow: `0 0 44px -12px ${color}`,
-        border: `3px solid ${color}B3`,
-      }}
-    >
-      {frame.placements.map((placement) => (
-        <div
-          key={`${frame.emoji}-${placement}`}
-          style={{
-            position: "absolute",
-            display: "flex",
-            width: emojiBox,
-            height: emojiBox,
-            borderRadius: 9999,
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: palette.emojiBg,
-            fontSize: emojiFont,
-            lineHeight: 1,
-            ...positions[placement],
-          }}
-        >
-          {frame.emoji}
-        </div>
-      ))}
-      {avatar ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={avatar}
-          width={112}
-          height={112}
-          style={{ borderRadius: 9999, border: `4px solid ${palette.avatarBorder}` }}
-          alt=""
-        />
-      ) : (
-        <div
-          style={{
-            display: "flex",
-            width: 112,
-            height: 112,
-            borderRadius: 9999,
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: palette.avatarBg,
-            border: `4px solid ${palette.avatarBorder}`,
-            color: palette.fg,
-            fontSize: 52,
-            fontWeight: 800,
-          }}
-        >
-          {username.slice(0, 1).toUpperCase()}
-        </div>
-      )}
-    </div>
-  );
 }
 
 export async function GET(req: Request, ctx: { params: Promise<{ username: string }> }) {
@@ -298,8 +139,22 @@ export async function GET(req: Request, ctx: { params: Promise<{ username: strin
     detail.display_name && /^[\x20-\x7e]+$/.test(detail.display_name) ? detail.display_name : null;
   const tags = (detail.tags.en ?? []).slice(0, 4);
 
+  const qr = parseQr(req) ? await qrDataUrl(detail.username, qrModuleColor(color, theme)) : null;
+  const id: Identity = { username: detail.username, displayName, avatar, tier, color, palette, qr };
+
+  // Specialty "brag cards" read the sedimented profile snapshot. If it's missing
+  // or lacks the data this card needs (low-tier accounts are never backfilled),
+  // fall through to the always-available score card so an embed never breaks.
+  const variant = parseVariant(req);
+  if (variant !== "score") {
+    const snap = await getProfileSnapshot(detail.username);
+    if (variantHasData(variant, snap) && snap) {
+      return png(renderVariant(variant, id, snap), fontList);
+    }
+  }
+
   return png(
-    <Shell glow={`${color}${theme === "light" ? "30" : "55"}`} palette={palette}>
+    <Shell glow={`${color}${theme === "light" ? "30" : "55"}`} palette={palette} qr={qr}>
       {/* Header */}
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
         <div

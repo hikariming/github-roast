@@ -11,7 +11,18 @@ const getOriginServerSnapshot = () => null;
 
 type CardTheme = "dark" | "light";
 
-const CARD_THEMES: CardTheme[] = ["dark", "light"];
+// Card types offered by the builder. `score` is the classic tier card; the rest
+// are the specialty "brag cards". Keys map to `?variant=` (except `score`, which
+// is the default) and to `<key>` i18n labels.
+const BUILDER_TYPES = ["score", "contrib", "pr", "path", "work"] as const;
+type BuilderType = (typeof BUILDER_TYPES)[number];
+const TYPE_KEY: Record<BuilderType, string> = {
+  score: "typeScore",
+  contrib: "variantContrib",
+  pr: "variantPr",
+  path: "variantPath",
+  work: "variantWork",
+};
 
 function withQuery(url: string, params: Record<string, string | undefined>): string {
   const query = new URLSearchParams();
@@ -20,6 +31,38 @@ function withQuery(url: string, params: Record<string, string | undefined>): str
   }
   const qs = query.toString();
   return qs ? `${url}?${qs}` : url;
+}
+
+/** A row of mutually-exclusive selectable chips. Module scope so it keeps a
+ *  stable identity across parent renders. */
+function ChipGroup<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: { key: T; label: string }[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map((o) => (
+        <button
+          key={o.key}
+          type="button"
+          onClick={() => onChange(o.key)}
+          aria-pressed={value === o.key}
+          className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+            value === o.key
+              ? "border-orange-400/50 bg-orange-500/15 text-orange-200"
+              : "border-white/10 text-zinc-400 hover:bg-white/5"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 /** One copyable snippet row. Declared at module scope (not inside render) so it
@@ -79,6 +122,10 @@ export function CopyBadge({
 }) {
   const T = useTranslations("badge");
   const [copied, setCopied] = useState<string | null>(null);
+  // Builder selections.
+  const [type, setType] = useState<BuilderType>("score");
+  const [theme, setTheme] = useState<CardTheme>("dark");
+  const [qr, setQr] = useState(false);
   const previewOrigin = useSyncExternalStore(
     subscribeNoop,
     getOriginSnapshot,
@@ -93,30 +140,33 @@ export function CopyBadge({
   const badgePreviewUrl = `${previewBase}/api/badge/${username}`;
   const cardPreviewUrl = `${previewBase}/api/card/${username}`;
   const versionParam =
-    version !== undefined && version !== null
-      ? String(version)
-      : undefined;
+    version !== undefined && version !== null ? String(version) : undefined;
   const badgePreview = withQuery(badgePreviewUrl, { v: versionParam });
 
   const badgeAlt = T("badgeAlt");
   const cardAlt = T("cardAlt");
-  const cardUrls = Object.fromEntries(
-    CARD_THEMES.map((theme) => [
-      theme,
-      {
-        url: withQuery(cardUrl, { theme }),
-        preview: withQuery(cardPreviewUrl, { theme, v: versionParam }),
-      },
-    ]),
-  ) as Record<CardTheme, { url: string; preview: string }>;
-  const snippets = {
-    badgeMd: `[![${badgeAlt}](${badgeUrl})](${pageUrl})`,
-    badgeHtml: `<a href="${pageUrl}"><img src="${badgeUrl}" alt="${badgeAlt}" /></a>`,
-    cardDarkMd: `[![${cardAlt}](${cardUrls.dark.url})](${pageUrl})`,
-    cardDarkHtml: `<a href="${pageUrl}"><img src="${cardUrls.dark.url}" alt="${cardAlt}" width="600" /></a>`,
-    cardLightMd: `[![${cardAlt}](${cardUrls.light.url})](${pageUrl})`,
-    cardLightHtml: `<a href="${pageUrl}"><img src="${cardUrls.light.url}" alt="${cardAlt}" width="600" /></a>`,
-  };
+  const badgeMd = `[![${badgeAlt}](${badgeUrl})](${pageUrl})`;
+  const badgeHtml = `<a href="${pageUrl}"><img src="${badgeUrl}" alt="${badgeAlt}" /></a>`;
+
+  // Builder → the query params selected right now. `variant` is omitted for the
+  // default score card; `qr` only when toggled on — keeps clean URLs the common case.
+  const cardParams: Record<string, string | undefined> = { theme };
+  if (type !== "score") cardParams.variant = type;
+  if (qr) cardParams.qr = "1";
+  const cardCurrentUrl = withQuery(cardUrl, cardParams);
+  const cardCurrentPreview = withQuery(cardPreviewUrl, { ...cardParams, v: versionParam });
+  const builderMd = `[![${cardAlt}](${cardCurrentUrl})](${pageUrl})`;
+  const builderHtml = `<a href="${pageUrl}"><img src="${cardCurrentUrl}" alt="${cardAlt}" width="600" /></a>`;
+
+  const typeOptions = BUILDER_TYPES.map((t) => ({ key: t, label: T(TYPE_KEY[t]) }));
+  const themeOptions: { key: CardTheme; label: string }[] = [
+    { key: "dark", label: T("themeDark") },
+    { key: "light", label: T("themeLight") },
+  ];
+  const qrOptions: { key: "on" | "off"; label: string }[] = [
+    { key: "off", label: T("qrOff") },
+    { key: "on", label: T("qrOn") },
+  ];
 
   const copy = async (text: string, key: string) => {
     try {
@@ -141,71 +191,88 @@ export function CopyBadge({
         <div className="mt-3 flex flex-col gap-3">
           <SnippetRow
             label={T("markdown")}
-            value={snippets.badgeMd}
+            value={badgeMd}
             copied={copied === "badge-md"}
-            onCopy={() => copy(snippets.badgeMd, "badge-md")}
+            onCopy={() => copy(badgeMd, "badge-md")}
             copyLabel={T("copy")}
             copiedLabel={T("copied")}
           />
           <SnippetRow
             label={T("html")}
-            value={snippets.badgeHtml}
+            value={badgeHtml}
             copied={copied === "badge-html"}
-            onCopy={() => copy(snippets.badgeHtml, "badge-html")}
+            onCopy={() => copy(badgeHtml, "badge-html")}
             copyLabel={T("copy")}
             copiedLabel={T("copied")}
           />
         </div>
       </div>
 
-      {/* Big flex card */}
+      {/* Card builder */}
       <div className="mt-6 border-t border-white/10 pt-5">
-        <div className="mb-2 text-xs font-semibold text-zinc-300">{T("cardTitle")}</div>
-        <div className="grid gap-3 lg:grid-cols-2">
-          {CARD_THEMES.map((theme) => (
-            <figure key={theme} className="min-w-0">
-              <figcaption className="mb-1 text-xs font-semibold text-zinc-400">
-                {theme === "dark" ? T("cardDark") : T("cardLight")}
-              </figcaption>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={cardUrls[theme].preview}
-                alt={`${cardAlt} ${theme}`}
-                className="w-full rounded-xl border border-white/10 bg-white/[0.02]"
+        <div className="mb-1 text-xs font-semibold text-zinc-300">{T("builderTitle")}</div>
+        <p className="mb-4 text-xs text-zinc-500">{T("builderBlurb")}</p>
+
+        <div className="flex flex-col gap-4">
+          <div>
+            <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+              {T("fieldType")}
+            </div>
+            <ChipGroup options={typeOptions} value={type} onChange={setType} />
+          </div>
+          <div className="flex flex-wrap gap-x-8 gap-y-4">
+            <div>
+              <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                {T("fieldTheme")}
+              </div>
+              <ChipGroup options={themeOptions} value={theme} onChange={setTheme} />
+            </div>
+            <div>
+              <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                {T("fieldQr")}
+              </div>
+              <ChipGroup
+                options={qrOptions}
+                value={qr ? "on" : "off"}
+                onChange={(v) => setQr(v === "on")}
               />
-            </figure>
-          ))}
+            </div>
+          </div>
         </div>
+
+        {/* Live preview */}
+        <figure className="mt-4 min-w-0">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={cardCurrentPreview}
+            alt={cardAlt}
+            className="w-full rounded-xl border border-white/10 bg-white/[0.02]"
+          />
+        </figure>
+
+        {/* Generated snippets for the current selection */}
         <div className="mt-3 flex flex-col gap-3">
           <SnippetRow
-            label={`${T("markdown")} · ${T("cardDark")}`}
-            value={snippets.cardDarkMd}
-            copied={copied === "card-dark-md"}
-            onCopy={() => copy(snippets.cardDarkMd, "card-dark-md")}
+            label={T("fieldUrl")}
+            value={cardCurrentUrl}
+            copied={copied === "builder-url"}
+            onCopy={() => copy(cardCurrentUrl, "builder-url")}
             copyLabel={T("copy")}
             copiedLabel={T("copied")}
           />
           <SnippetRow
-            label={`${T("markdown")} · ${T("cardLight")}`}
-            value={snippets.cardLightMd}
-            copied={copied === "card-light-md"}
-            onCopy={() => copy(snippets.cardLightMd, "card-light-md")}
+            label={T("markdown")}
+            value={builderMd}
+            copied={copied === "builder-md"}
+            onCopy={() => copy(builderMd, "builder-md")}
             copyLabel={T("copy")}
             copiedLabel={T("copied")}
           />
           <SnippetRow
-            label={`${T("html")} · ${T("cardDark")}`}
-            value={snippets.cardDarkHtml}
-            copied={copied === "card-dark-html"}
-            onCopy={() => copy(snippets.cardDarkHtml, "card-dark-html")}
-            copyLabel={T("copy")}
-            copiedLabel={T("copied")}
-          />
-          <SnippetRow
-            label={`${T("html")} · ${T("cardLight")}`}
-            value={snippets.cardLightHtml}
-            copied={copied === "card-light-html"}
-            onCopy={() => copy(snippets.cardLightHtml, "card-light-html")}
+            label={T("html")}
+            value={builderHtml}
+            copied={copied === "builder-html"}
+            onCopy={() => copy(builderHtml, "builder-html")}
             copyLabel={T("copy")}
             copiedLabel={T("copied")}
           />
