@@ -57,6 +57,48 @@ export const commandCatalog = [
     options: ["--host", "--api-key", "--turnstile-token", "-o, --output"],
   },
   {
+    name: "stats",
+    usage: "github-roast stats [-o json|pretty]",
+    summary: "Call /api/stats and return the platform's scored-account count.",
+    api: ["GET /api/stats"],
+    output: ["json", "pretty"],
+    response_semantics:
+      "/api/stats returns platform-level aggregate metadata, currently total scored accounts and cache status. It is not a per-user score source.",
+    agent_guidance:
+      "Use stats for platform overview only. Do not use it as evidence about an individual developer.",
+    auth: "Does not require authentication.",
+    args: [],
+    options: ["--host", "-o, --output"],
+  },
+  {
+    name: "leaderboard",
+    usage: "github-roast leaderboard [--view trending|score|heat|progress] [--window all|24h|7d|30d] [-o json|pretty]",
+    summary: "Call /api/leaderboard and return ranked public profile entries.",
+    api: ["GET /api/leaderboard"],
+    output: ["json", "pretty"],
+    response_semantics:
+      "/api/leaderboard returns cached ranking/discovery entries. Ranking views are presentation/discovery surfaces, not fresh per-user scoring facts.",
+    agent_guidance:
+      "Use leaderboard to discover candidates or compare public ranking context. For factual scoring of a specific user, call scan or score.",
+    auth: "Does not require authentication.",
+    args: [],
+    options: ["--host", "--view", "--window", "-o, --output"],
+  },
+  {
+    name: "developers",
+    usage: "github-roast developers --type language|org|repo [--value <facet>] [-o json|pretty]",
+    summary: "Call /api/developers and return developer discovery facets or one facet bucket.",
+    api: ["GET /api/developers"],
+    output: ["json", "pretty"],
+    response_semantics:
+      "/api/developers returns cached discovery categories or entries for a facet. It is a directory/discovery surface, not a direct score calculation endpoint.",
+    agent_guidance:
+      "Use developers to find candidates by language, organization, or contributed repo. Use scan or score before making claims about a specific account.",
+    auth: "Does not require authentication.",
+    args: [],
+    options: ["--host", "--type", "--value", "-o, --output"],
+  },
+  {
     name: "commands",
     usage: "github-roast commands [--json]",
     summary: "List agent-callable CLI commands.",
