@@ -5,6 +5,7 @@ import {
   computeFloodSignals,
   computeImpactFromContribMap,
   computeImpactQualitySignals,
+  computeOrgRepoAttribution,
   isDocLikeImpactPr,
   isEcosystemImpactPr,
   isExternalTrivialFarmPr,
@@ -110,6 +111,18 @@ const repo = (over: Partial<TopRepo>): TopRepo => ({
   pushed_at: "2026-06-01T00:00:00Z",
   readme_excerpt:
     "Install the service, configure usage examples, run the test suite, explore the API, deploy it, review architecture decisions, and inspect screenshots for the complete workflow.",
+  ...over,
+});
+
+const contribRepo = (over: Partial<ContribRepoAgg>): ContribRepoAgg => ({
+  repo: "org/main-engine",
+  stars: 10000,
+  is_private: false,
+  is_fork: false,
+  owner_login: "org",
+  commits: 80,
+  prs: 12,
+  active_years: 3,
   ...over,
 });
 
@@ -574,6 +587,46 @@ Run the CLI with the default config.
     expect(topStarred.score).toBeLessThan(0.3);
     expect(best.repo).toBe("usable-engine");
   });
+
+  it("attributes an organization repo only with strong long-term core maintenance", () => {
+    const attribution = computeOrgRepoAttribution({
+      repo: contribRepo({ commits: 90, prs: 8, active_years: 4 }),
+      organizations: ["org"],
+    });
+
+    expect(attribution?.repo).toBe("org/main-engine");
+    expect(attribution?.score).toBeGreaterThanOrEqual(5);
+    expect(attribution?.evidence.join(" ")).toContain("90 commits");
+  });
+
+  it("does not attribute org repos from docs-like or PR-only contribution volume", () => {
+    expect(
+      computeOrgRepoAttribution({
+        repo: contribRepo({ repo: "org/main-docs", commits: 120, prs: 40 }),
+        organizations: ["org"],
+      }),
+    ).toBeNull();
+
+    expect(
+      computeOrgRepoAttribution({
+        repo: contribRepo({ commits: 0, prs: 120, active_years: 4 }),
+        organizations: ["org"],
+        releaseOrTagAuthorHit: true,
+        maintainerFileHit: true,
+      }),
+    ).toBeNull();
+  });
+
+  it("does not attribute organization repos without public org membership", () => {
+    expect(
+      computeOrgRepoAttribution({
+        repo: contribRepo({ commits: 200, prs: 30, active_years: 5 }),
+        organizations: ["other-org"],
+        releaseOrTagAuthorHit: true,
+        maintainerFileHit: true,
+      }),
+    ).toBeNull();
+  });
 });
 
 describe("isExternalTrivialFarmPr (garbage into popular community repos)", () => {
@@ -644,6 +697,7 @@ describe("computeImpactFromContribMap (all-time PR + commit impact)", () => {
     owner_login: "foundation",
     commits: 0,
     prs: 0,
+    active_years: 1,
     ...over,
   });
 
