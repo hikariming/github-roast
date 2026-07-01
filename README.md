@@ -103,6 +103,8 @@ For a standalone binary:
 pnpm cli:build
 ./bin/github-roast commands --json
 ./bin/github-roast roast hikariming --lang en -o markdown
+./bin/github-roast leaderboard --view trending --window all -o json
+./bin/github-roast developers --type language -o json
 ```
 
 The default service host is `https://ghfind.com`. Override it for local dev:

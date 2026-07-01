@@ -103,6 +103,8 @@ pnpm github-roast roast hikariming --lang zh -o markdown
 pnpm cli:build
 ./bin/github-roast commands --json
 ./bin/github-roast roast hikariming --lang zh -o markdown
+./bin/github-roast leaderboard --view trending --window all -o json
+./bin/github-roast developers --type language -o json
 ```
 
 默认服务端域名是 `https://ghfind.com`。本地联调可以覆盖:

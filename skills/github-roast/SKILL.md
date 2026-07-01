@@ -63,6 +63,15 @@ When a standalone binary is available, prefer it:
 
 ## Common Calls
 
+Platform overview and discovery:
+
+```bash
+./bin/github-roast stats -o json
+./bin/github-roast leaderboard --view trending --window all -o json
+./bin/github-roast developers --type language -o json
+./bin/github-roast developers --type org --value apache -o json
+```
+
 Scan a user and return raw website scan JSON:
 
 ```bash
@@ -107,6 +116,16 @@ pnpm github-roast auth status -o json
 - No writer-layer roast copy.
 
 `score` is a compact factual summary derived from `scan.scoring`.
+
+`stats`, `leaderboard`, and `developers` are platform discovery commands:
+
+- `stats` returns aggregate platform metadata such as total scored accounts.
+- `leaderboard` returns cached public ranking/discovery entries.
+- `developers` returns cached facet categories or developer buckets.
+
+These discovery commands help agents find candidates or understand public
+ranking context. They are not fresh factual scoring sources for an individual
+developer. Before making claims about one account, call `scan` or `score`.
 
 `roast` calls `POST /api/scan` and then `POST /api/roast`. It returns the same
 web-facing report a human sees:
