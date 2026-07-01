@@ -34,6 +34,8 @@ func Execute(args []string, stdout io.Writer, stderr io.Writer) int {
 		return runScan(positional[1:], opts, stdout, stderr)
 	case "score":
 		return runScore(positional[1:], opts, stdout, stderr)
+	case "roast":
+		return runRoast(positional[1:], opts, stdout, stderr)
 	case "commands":
 		return runCommands(positional[1:], opts, stdout, stderr)
 	case "auth":
@@ -43,6 +45,44 @@ func Execute(args []string, stdout io.Writer, stderr io.Writer) int {
 		return exitError(stderr, fmt.Errorf("unknown auth command"))
 	default:
 		return exitError(stderr, fmt.Errorf("unknown command: %s", positional[0]))
+	}
+}
+
+func runRoast(args []string, opts globalOptions, stdout io.Writer, stderr io.Writer) int {
+	username, err := usernameArg(args)
+	if err != nil {
+		return exitError(stderr, err)
+	}
+	if opts.Lang != "zh" && opts.Lang != "en" {
+		return exitError(stderr, fmt.Errorf("invalid language: %s", opts.Lang))
+	}
+	client := NewClient(opts)
+	scan, err := client.Scan(context.Background(), username)
+	if err != nil {
+		return exitError(stderr, err)
+	}
+	roast, err := client.Roast(context.Background(), scan, opts.Lang)
+	if err != nil {
+		return exitError(stderr, err)
+	}
+	summary := roastSummary(scan, roast, opts.Lang)
+	switch opts.Output {
+	case "json":
+		return writeJSON(stdout, summary)
+	case "markdown":
+		fmt.Fprintln(stdout, roast.Report)
+		return 0
+	case "pretty":
+		fmt.Fprintf(stdout, "%v: %v/100 %v (%v)\n",
+			summary["username"], summary["final_score"], summary["tier"], summary["tier_label"])
+		if line := roastLine(summary, opts.Lang); line != "" {
+			fmt.Fprintln(stdout, line)
+			fmt.Fprintln(stdout)
+		}
+		fmt.Fprintln(stdout, roast.Report)
+		return 0
+	default:
+		return exitError(stderr, fmt.Errorf("invalid output format: %s", opts.Output))
 	}
 }
 
@@ -231,6 +271,40 @@ func scoreSummary(scan map[string]any) map[string]any {
 		"red_flags":   scoring["red_flags"],
 		"cached":      scan["cached"],
 	}
+}
+
+func roastSummary(scan map[string]any, roast RoastResult, lang string) map[string]any {
+	metrics, _ := scan["metrics"].(map[string]any)
+	return map[string]any{
+		"username":    metrics["username"],
+		"lang":        lang,
+		"final_score": roast.Meta["final_score"],
+		"tier":        roast.Meta["tier"],
+		"tier_label":  roast.Meta["tier_label"],
+		"delta":       roast.Meta["delta"],
+		"percentile":  roast.Meta["percentile"],
+		"tags":        roast.Meta["tags"],
+		"roast_line":  roast.Meta["roast_line"],
+		"report":      roast.Report,
+		"scan":        scan,
+	}
+}
+
+func roastLine(summary map[string]any, lang string) string {
+	lines, ok := summary["roast_line"].(map[string]any)
+	if !ok {
+		return ""
+	}
+	if value, ok := lines[lang].(string); ok && value != "" {
+		return value
+	}
+	if value, ok := lines["zh"].(string); ok && value != "" {
+		return value
+	}
+	if value, ok := lines["en"].(string); ok && value != "" {
+		return value
+	}
+	return ""
 }
 
 func envOrDefault(key string, fallback string) string {

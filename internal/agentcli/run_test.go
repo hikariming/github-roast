@@ -2,6 +2,7 @@ package agentcli
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -24,6 +25,54 @@ func TestCommandsJSONIncludesAgentGuidance(t *testing.T) {
 	}
 	if payload.AgentGuidance == "" || payload.ResponseSemantics == "" {
 		t.Fatalf("expected agent guidance and response semantics in catalog")
+	}
+}
+
+func TestRoastCommandCallsScanThenRoast(t *testing.T) {
+	var paths []string
+	meta := map[string]any{
+		"final_score": 71,
+		"tier":        "人上人",
+		"tier_label":  "优质贡献者",
+		"delta":       3,
+		"roast_line":  map[string]any{"zh": "中文点评", "en": "English roast"},
+	}
+	metaBytes, _ := json.Marshal(meta)
+	encodedMeta := base64.StdEncoding.EncodeToString(metaBytes)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+		switch r.URL.Path {
+		case "/api/scan":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{
+				"metrics":{"username":"DemoDev"},
+				"scoring":{"final_score":68,"tier":"NPC","tier_label":"普通账号"}
+			}`))
+		case "/api/roast":
+			w.Header().Set(roastMetaHeader, encodedMeta)
+			_, _ = w.Write([]byte("## Demo\nReport\n"))
+		default:
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	var stdout bytes.Buffer
+	code := Execute([]string{"roast", "DemoDev", "--host", server.URL, "--lang", "zh", "-o", "json"}, &stdout, &bytes.Buffer{})
+	if code != 0 {
+		t.Fatalf("Execute returned %d", code)
+	}
+	if len(paths) != 2 || paths[0] != "/api/scan" || paths[1] != "/api/roast" {
+		t.Fatalf("unexpected paths: %#v", paths)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(stdout.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload["report"] != "## Demo\nReport" || payload["final_score"] != float64(71) {
+		t.Fatalf("unexpected roast payload: %#v", payload)
 	}
 }
 
