@@ -7,6 +7,10 @@ export const commandCatalog = [
     summary: "Call the website /api/scan endpoint and return the scan payload.",
     api: ["POST /api/scan"],
     output: ["json", "pretty"],
+    response_semantics:
+      "/api/scan returns factual structured scoring data: metrics, repository signals, PR signals, deterministic sub_scores, red_flags, and base final_score. It does not include writer-layer roast copy.",
+    agent_guidance:
+      "Use scan when you need objective account evidence or want to perform your own analysis. Treat this as the authoritative factual payload.",
     auth:
       "Production scan requests need either --api-key/GITHUB_ROAST_API_KEY or --turnstile-token/GITHUB_ROAST_TURNSTILE_TOKEN.",
     args: [{ name: "username", required: true }],
@@ -18,6 +22,10 @@ export const commandCatalog = [
     summary: "Call /api/scan and print only the scoring summary.",
     api: ["POST /api/scan"],
     output: ["json", "pretty"],
+    response_semantics:
+      "score is a compact view derived from /api/scan.scoring. It is factual structured scoring data and does not include writer-layer roast copy.",
+    agent_guidance:
+      "Use score when an agent only needs the numeric result, tier, sub_scores, and red_flags. Prefer this over roast for automated decisions.",
     auth:
       "Production scan requests need either --api-key/GITHUB_ROAST_API_KEY or --turnstile-token/GITHUB_ROAST_TURNSTILE_TOKEN.",
     args: [{ name: "username", required: true }],
@@ -29,6 +37,10 @@ export const commandCatalog = [
     summary: "Call /api/scan, then pass the returned scan to the website /api/roast endpoint.",
     api: ["POST /api/scan", "POST /api/roast"],
     output: ["json", "markdown", "pretty"],
+    response_semantics:
+      "/api/roast returns the website presentation report. It includes writer-layer style: roast tags, roast_line, jokes, sarcasm, and markdown commentary. It also returns meta with final_score, tier, tier_label, delta, and percentile.",
+    agent_guidance:
+      "Use roast only when you need the same web-facing report a human sees. Do not treat roast prose as independent factual evidence; for factual scoring use scan or score.",
     auth:
       "Production scan requests need either --api-key/GITHUB_ROAST_API_KEY or --turnstile-token/GITHUB_ROAST_TURNSTILE_TOKEN.",
     args: [{ name: "username", required: true }],

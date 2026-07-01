@@ -81,11 +81,36 @@ Check local CLI credentials:
 pnpm github-roast auth status -o json
 ```
 
+## Response Semantics
+
+`scan` calls `POST /api/scan` and returns factual structured data:
+
+- GitHub profile metrics.
+- Repository, PR, impact, pinned repo, and organization signals.
+- Deterministic `scoring.sub_scores`, `red_flags`, `tier`, and base
+  `final_score`.
+- No writer-layer roast copy.
+
+`score` is a compact factual summary derived from `scan.scoring`.
+
+`roast` calls `POST /api/scan` and then `POST /api/roast`. It returns the same
+web-facing report a human sees:
+
+- `meta.final_score`, `tier`, `tier_label`, `delta`, `percentile`.
+- `tags` and `roast_line`.
+- Markdown report text with writer-layer style, jokes, sarcasm, and roast copy.
+
+For automated factual decisions, use `scan` or `score`. Use `roast` only when
+the agent needs the user-facing report text. Do not treat roast prose as
+independent factual evidence.
+
 ## Agent Rules
 
 - Prefer `-o json` for machine consumption.
 - Use `--host http://localhost:3000` when testing an active local dev server.
 - Do not pass GitHub tokens or LLM API keys to the CLI; those belong on the
   server.
-- Do not reimplement scoring locally. The authoritative score comes from
-  `POST /api/scan` and the final report from `POST /api/roast`.
+- Do not reimplement scoring locally.
+- Use `scan` / `score` for objective scoring and `roast` for presentation copy.
+- The authoritative factual score input comes from `POST /api/scan`; the
+  user-facing report comes from `POST /api/roast`.
