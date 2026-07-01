@@ -1,6 +1,7 @@
 package agentcli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -29,6 +30,10 @@ func Execute(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	switch positional[0] {
+	case "scan":
+		return runScan(positional[1:], opts, stdout, stderr)
+	case "score":
+		return runScore(positional[1:], opts, stdout, stderr)
 	case "commands":
 		return runCommands(positional[1:], opts, stdout, stderr)
 	case "auth":
@@ -39,6 +44,47 @@ func Execute(args []string, stdout io.Writer, stderr io.Writer) int {
 	default:
 		return exitError(stderr, fmt.Errorf("unknown command: %s", positional[0]))
 	}
+}
+
+func runScan(args []string, opts globalOptions, stdout io.Writer, stderr io.Writer) int {
+	username, err := usernameArg(args)
+	if err != nil {
+		return exitError(stderr, err)
+	}
+	scan, err := NewClient(opts).Scan(context.Background(), username)
+	if err != nil {
+		return exitError(stderr, err)
+	}
+	if opts.Output == "json" || opts.Output == "pretty" {
+		return writeJSON(stdout, scan)
+	}
+	return exitError(stderr, fmt.Errorf("invalid output format: %s", opts.Output))
+}
+
+func runScore(args []string, opts globalOptions, stdout io.Writer, stderr io.Writer) int {
+	username, err := usernameArg(args)
+	if err != nil {
+		return exitError(stderr, err)
+	}
+	scan, err := NewClient(opts).Scan(context.Background(), username)
+	if err != nil {
+		return exitError(stderr, err)
+	}
+	summary := scoreSummary(scan)
+	if opts.Output == "json" {
+		return writeJSON(stdout, summary)
+	}
+	if opts.Output != "pretty" {
+		return exitError(stderr, fmt.Errorf("invalid output format: %s", opts.Output))
+	}
+	fmt.Fprintf(stdout, "%v: %v/100 %v (%v)\n",
+		summary["username"], summary["final_score"], summary["tier"], summary["tier_label"])
+	if subScores, ok := summary["sub_scores"].(map[string]any); ok {
+		for key, value := range subScores {
+			fmt.Fprintf(stdout, "- %s: %v\n", key, value)
+		}
+	}
+	return 0
 }
 
 func parseArgs(args []string) ([]string, globalOptions, error) {
@@ -164,6 +210,27 @@ func writeJSON(stdout io.Writer, v any) int {
 func exitError(stderr io.Writer, err error) int {
 	fmt.Fprintln(stderr, err.Error())
 	return 1
+}
+
+func usernameArg(args []string) (string, error) {
+	if len(args) == 0 || args[0] == "" {
+		return "", fmt.Errorf("missing username")
+	}
+	return args[0], nil
+}
+
+func scoreSummary(scan map[string]any) map[string]any {
+	metrics, _ := scan["metrics"].(map[string]any)
+	scoring, _ := scan["scoring"].(map[string]any)
+	return map[string]any{
+		"username":    metrics["username"],
+		"final_score": scoring["final_score"],
+		"tier":        scoring["tier"],
+		"tier_label":  scoring["tier_label"],
+		"sub_scores":  scoring["sub_scores"],
+		"red_flags":   scoring["red_flags"],
+		"cached":      scan["cached"],
+	}
 }
 
 func envOrDefault(key string, fallback string) string {
