@@ -5,6 +5,7 @@ import {
   computeFloodSignals,
   computeImpactFromContribMap,
   computeImpactQualitySignals,
+  computeOrgRepoAttribution,
   isDocLikeImpactPr,
   isEcosystemImpactPr,
   isExternalTrivialFarmPr,
@@ -113,6 +114,18 @@ const repo = (over: Partial<TopRepo>): TopRepo => ({
   ...over,
 });
 
+const contribRepo = (over: Partial<ContribRepoAgg>): ContribRepoAgg => ({
+  repo: "org/main-engine",
+  stars: 10000,
+  is_private: false,
+  is_fork: false,
+  owner_login: "org",
+  commits: 80,
+  prs: 12,
+  active_years: 3,
+  ...over,
+});
+
 describe("spam-PR red flags", () => {
   it("does not fire on a neutral account", () => {
     expect(score(NEUTRAL).red_flags).toHaveLength(0);
@@ -204,7 +217,7 @@ describe("spam-PR red flags", () => {
     );
   });
 
-  it("applies only a small penalty to abnormal author-closed external PR patterns", () => {
+  it("ignores even large author-closed external PR patterns for scoring", () => {
     const m: RawMetrics = {
       ...NEUTRAL,
       merged_pr_count: 20,
@@ -215,10 +228,9 @@ describe("spam-PR red flags", () => {
       self_closed_own_repo_pr_count: 0,
       pr_rejection_rate: 0,
     };
-    expect(authorSelfClosedExternalPenalty(m)).toBeCloseTo(1.5, 1);
-    expect(score(m).sub_scores.contribution_quality).toBeCloseTo(
-      score({ ...m, self_closed_external_pr_count: 0 }).sub_scores.contribution_quality - 1.5,
-      1,
+    expect(authorSelfClosedExternalPenalty(m)).toBe(0);
+    expect(score(m).sub_scores.contribution_quality).toBe(
+      score({ ...m, self_closed_external_pr_count: 0 }).sub_scores.contribution_quality,
     );
   });
 
@@ -574,6 +586,46 @@ Run the CLI with the default config.
     expect(topStarred.score).toBeLessThan(0.3);
     expect(best.repo).toBe("usable-engine");
   });
+
+  it("attributes an organization repo only with strong long-term core maintenance", () => {
+    const attribution = computeOrgRepoAttribution({
+      repo: contribRepo({ commits: 90, prs: 8, active_years: 4 }),
+      organizations: ["org"],
+    });
+
+    expect(attribution?.repo).toBe("org/main-engine");
+    expect(attribution?.score).toBeGreaterThanOrEqual(5);
+    expect(attribution?.evidence.join(" ")).toContain("90 commits");
+  });
+
+  it("does not attribute org repos from docs-like or PR-only contribution volume", () => {
+    expect(
+      computeOrgRepoAttribution({
+        repo: contribRepo({ repo: "org/main-docs", commits: 120, prs: 40 }),
+        organizations: ["org"],
+      }),
+    ).toBeNull();
+
+    expect(
+      computeOrgRepoAttribution({
+        repo: contribRepo({ commits: 0, prs: 120, active_years: 4 }),
+        organizations: ["org"],
+        releaseOrTagAuthorHit: true,
+        maintainerFileHit: true,
+      }),
+    ).toBeNull();
+  });
+
+  it("does not attribute organization repos without public org membership", () => {
+    expect(
+      computeOrgRepoAttribution({
+        repo: contribRepo({ commits: 200, prs: 30, active_years: 5 }),
+        organizations: ["other-org"],
+        releaseOrTagAuthorHit: true,
+        maintainerFileHit: true,
+      }),
+    ).toBeNull();
+  });
 });
 
 describe("isExternalTrivialFarmPr (garbage into popular community repos)", () => {
@@ -644,6 +696,7 @@ describe("computeImpactFromContribMap (all-time PR + commit impact)", () => {
     owner_login: "foundation",
     commits: 0,
     prs: 0,
+    active_years: 1,
     ...over,
   });
 
@@ -846,6 +899,29 @@ describe("doc-like PR contribution-quality discount", () => {
     };
     expect(contributionQualityCap(m)).toBe(12);
     expect(score(m).sub_scores.contribution_quality).toBe(12);
+  });
+
+  it("does not cap contribution quality just because external PRs were author-closed", () => {
+    const m: RawMetrics = {
+      ...NEUTRAL,
+      merged_pr_count: 38,
+      total_pr_count: 68,
+      issues_created: 65,
+      total_stars: 158,
+      recent_merged_pr_sample: 38,
+      recent_external_pr_sample: 37,
+      recent_external_doc_like_pr_count: 22,
+      recent_external_doc_like_pr_ratio: 0.59,
+      max_impact_repo_stars: 75125,
+      impact_pr_count: 23,
+      impact_depth_raw: 13.08,
+      impact_quality_cap: 4,
+      core_impact_pr_count: 2,
+      doc_like_impact_pr_count: 3,
+      top_starred_original_repo_quality_score: 0.8,
+      self_closed_external_pr_count: 21,
+    };
+    expect(contributionQualityCap(m)).toBeUndefined();
   });
 
   it("does not discount normal histories with a small docs share", () => {
