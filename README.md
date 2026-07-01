@@ -81,9 +81,32 @@ pnpm dev
 | `pnpm dev` | Local development |
 | `pnpm start` or `pnpm build/start` | One-command production build + run |
 | `pnpm build` / `pnpm start:prod` | Build only / run an existing production build |
+| `pnpm github-roast` | Agent-friendly CLI wrapper around the website `/api/scan` + `/api/roast` APIs |
 | `pnpm test` | Vitest test suite (scoring, prompts, DB, UI helpers, reactions, etc.) |
 | `pnpm typecheck` | `tsc --noEmit` |
 | `pnpm lint` | ESLint |
+
+### Agent CLI
+
+The CLI is a thin remote wrapper around the public website APIs. It does **not**
+run GitHub scanning, scoring, or LLM logic locally.
+
+```bash
+pnpm github-roast commands --json
+pnpm github-roast score hikariming -o json
+pnpm github-roast roast hikariming --lang en -o markdown
+```
+
+The default service host is `https://ghfind.com`. Override it for local dev:
+
+```bash
+GITHUB_ROAST_HOST=http://localhost:3000 pnpm github-roast roast hikariming --lang en
+```
+
+Production `/api/scan` uses Turnstile for browser calls. For agent/CLI calls,
+set `GITHUB_ROAST_CLI_API_KEY` on the server and pass the same value to the CLI
+as `GITHUB_ROAST_API_KEY` or `--api-key`; the CLI sends it as
+`Authorization: Bearer ...` to the same `/api/scan` endpoint.
 
 ## Environment variables
 
