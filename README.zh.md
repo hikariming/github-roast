@@ -118,6 +118,9 @@ GITHUB_ROAST_HOST=http://localhost:3000 pnpm github-roast roast hikariming --lan
 `--api-key` 传入;CLI 会向同一个 `/api/scan` 端点发送
 `Authorization: Bearer ...`。
 
+如果生产环境没有配置 `GITHUB_ROAST_CLI_API_KEY`,CLI 仍可能命中已有 scan 缓存;
+但冷用户扫描可能因为 CLI 无法完成浏览器 Turnstile 挑战而失败。
+
 ## 环境变量
 
 见 [`.env.example`](./.env.example)。GitHub 评分流程最小可跑只需 `GITHUB_TOKEN` + `LLM_API_KEY`(默认 StepFun 阶跃,OpenAI 兼容;可换任意 OpenAI 兼容服务);缓存、限流、人机校验、GitHub 登录、个人页评论/反应、排行榜在未配置时会**静默降级**(适合本地)。生产强烈建议全配齐。

@@ -118,6 +118,10 @@ set `GITHUB_ROAST_CLI_API_KEY` on the server and pass the same value to the CLI
 as `GITHUB_ROAST_API_KEY` or `--api-key`; the CLI sends it as
 `Authorization: Bearer ...` to the same `/api/scan` endpoint.
 
+If `GITHUB_ROAST_CLI_API_KEY` is not configured in production, the CLI can still
+hit cached scans, but cold users may fail Turnstile because the CLI cannot solve
+the browser challenge.
+
 ## Environment variables
 
 See [`.env.example`](./.env.example). The minimum to run the GitHub roast flow is `GITHUB_TOKEN` + `LLM_API_KEY` (defaults to StepFun, OpenAI-compatible; swap in any OpenAI-compatible service). Cache, rate limiting, human verification, GitHub login, profile comments/reactions, and the leaderboard **degrade silently** when unconfigured (fine for local). Configure everything for production.
