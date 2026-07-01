@@ -97,6 +97,14 @@ pnpm github-roast score hikariming -o json
 pnpm github-roast roast hikariming --lang zh -o markdown
 ```
 
+构建独立二进制:
+
+```bash
+pnpm cli:build
+./bin/github-roast commands --json
+./bin/github-roast roast hikariming --lang zh -o markdown
+```
+
 默认服务端域名是 `https://ghfind.com`。本地联调可以覆盖:
 
 ```bash

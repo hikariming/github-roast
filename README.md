@@ -97,6 +97,14 @@ pnpm github-roast score hikariming -o json
 pnpm github-roast roast hikariming --lang en -o markdown
 ```
 
+For a standalone binary:
+
+```bash
+pnpm cli:build
+./bin/github-roast commands --json
+./bin/github-roast roast hikariming --lang en -o markdown
+```
+
 The default service host is `https://ghfind.com`. Override it for local dev:
 
 ```bash

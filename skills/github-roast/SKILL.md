@@ -54,6 +54,13 @@ pnpm github-roast commands --json
 pnpm github-roast commands show roast --json
 ```
 
+When a standalone binary is available, prefer it:
+
+```bash
+./bin/github-roast commands --json
+./bin/github-roast commands show roast --json
+```
+
 ## Common Calls
 
 Scan a user and return raw website scan JSON:
@@ -73,6 +80,14 @@ Generate a full report:
 ```bash
 pnpm github-roast roast <username> --lang zh -o json
 pnpm github-roast roast <username> --lang en -o markdown
+```
+
+Equivalent standalone binary calls:
+
+```bash
+./bin/github-roast scan <username> -o json
+./bin/github-roast score <username> -o json
+./bin/github-roast roast <username> --lang zh -o json
 ```
 
 Check local CLI credentials:
