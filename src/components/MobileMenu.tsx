@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Menu, X } from "lucide-react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { NAV_ITEMS } from "@/config/nav";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { NavLinks } from "./NavLinks";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { ThemeToggle } from "./ThemeToggle";
@@ -30,52 +33,38 @@ export function MobileMenu({
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
-
   return (
     <div className="sm:hidden">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-controls="mobile-menu"
-        aria-label={open ? t("closeMenu") : t("openMenu")}
-        className="relative z-50 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-200 hover:bg-white/10"
-      >
-        {open ? (
-          <svg viewBox="0 0 24 24" aria-hidden className="h-5 w-5 stroke-current" fill="none" strokeWidth="2" strokeLinecap="round">
-            <path d="M6 6l12 12M18 6L6 18" />
-          </svg>
-        ) : (
-          <svg viewBox="0 0 24 24" aria-hidden className="h-5 w-5 stroke-current" fill="none" strokeWidth="2" strokeLinecap="round">
-            <path d="M4 7h16M4 12h16M4 17h16" />
-          </svg>
-        )}
-      </button>
+      <Sheet open={open} onOpenChange={setOpen}>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          aria-expanded={open}
+          aria-controls="mobile-menu"
+          aria-label={open ? t("closeMenu") : t("openMenu")}
+          className="relative z-50 rounded-full border-white/10 bg-white/5 text-zinc-200 hover:bg-white/10"
+          onClick={() => setOpen((v) => !v)}
+        >
+          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </Button>
 
-      {open && (
-        <div
+        <SheetContent
           id="mobile-menu"
-          className="absolute inset-x-0 top-full z-50 flex flex-col gap-4 border-b border-white/10 bg-zinc-950/95 px-5 py-4 backdrop-blur"
+          side="top"
+          className="top-14 rounded-b-2xl border-b border-white/10 bg-popover/98 px-5 pb-5 pt-14 backdrop-blur-xl"
         >
           <NavLinks items={NAV_ITEMS} orientation="vertical" onNavigate={close} />
-          <div className="border-t border-white/10 pt-4">{auth}</div>
-          <div className="flex items-center justify-between">
+          <div className="mt-4 border-t border-white/10 pt-4">{auth}</div>
+          <div className="mt-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <ThemeToggle />
               <LanguageSwitcher />
             </div>
             {repoLink}
           </div>
-        </div>
-      )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
