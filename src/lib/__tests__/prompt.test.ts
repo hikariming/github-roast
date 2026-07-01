@@ -70,12 +70,20 @@ describe("buildRoastMessages", () => {
     expect(zhSys.content).toContain("不要写报告，不要玩梗，不要毒舌");
     expect(zhSys.content).toContain('"delta":0');
     expect(zhSys.content).toContain("输出必须是纯 JSON");
+    expect(zhSys.content).toContain("学校、公司、雇主、组织 membership");
+    expect(zhSys.content).toContain("只能作为背景信息");
+    expect(zhSys.content).toContain("README 文本");
+    expect(zhSys.content).toContain("不能单独给正向 delta");
     expect(zhUser.content).not.toContain('"judge_result"');
 
     const [enSys] = buildRoastJudgeMessages(scan, "en");
     expect(enSys.content).toContain("score calibration judge");
     expect(enSys.content).toContain("do not write the report, do not roast");
     expect(enSys.content).toContain("Output pure JSON only");
+    expect(enSys.content).toContain("School, company, employer, or organization membership");
+    expect(enSys.content).toContain("background context only");
+    expect(enSys.content).toContain("README text");
+    expect(enSys.content).toContain("must not produce a positive delta by itself");
   });
 
   it("makes the report writer consume fixed judge_result instead of deciding delta", () => {
@@ -95,6 +103,22 @@ describe("buildRoastMessages", () => {
     expect(sys.content).toContain("不能因为想嘴臭而改分");
     const payload = JSON.parse(user.content.match(/```json\n([\s\S]*)\n```/)![1]);
     expect(payload.judge_result).toMatchObject(judge);
+  });
+
+  it("keeps affiliations from becoming score evidence in judge and writer context", () => {
+    const [zhSys, zhUser] = buildRoastMessages(scan, "zh");
+    expect(zhSys.content).toContain("学校、公司、雇主、组织 membership 只是背景");
+    expect(zhSys.content).toContain("不是分数背书");
+    const zhPayload = JSON.parse(zhUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
+    expect(zhPayload.context_notes.affiliation_scope).toContain("不能作为正向 delta");
+    expect(zhPayload.context_notes.affiliation_scope).toContain("README 文本");
+
+    const [enSys, enUser] = buildRoastMessages(scan, "en");
+    expect(enSys.content).toContain("School, company, employer, or organization membership is background context");
+    expect(enSys.content).toContain("not score evidence");
+    const enPayload = JSON.parse(enUser.content.match(/```json\n([\s\S]*)\n```/)![1]);
+    expect(enPayload.context_notes.affiliation_scope).toContain("must not justify positive delta");
+    expect(enPayload.context_notes.affiliation_scope).toContain("README text");
   });
 
   it("does not duplicate structured README summaries in the prompt payload", () => {
