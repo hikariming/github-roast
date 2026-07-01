@@ -9,6 +9,7 @@ import {
 import { getDevelopersByFacetCached } from "@/lib/developers";
 import { DEVELOPERS_PER_FACET_LIMIT } from "@/lib/db";
 import type { FacetType } from "@/lib/facets";
+import { localeAlternates } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 
@@ -50,9 +51,13 @@ export async function generateMetadata({
   const meta = await getTranslations({ locale, namespace: "meta" });
   if (!type) return { title: t("metaTitle") };
   const heading = t(bucketHeadingKey(type), { value });
+  // Encode each segment separately so a `repo` value ("owner/name") keeps its
+  // slash as a path separator — mirrors the sitemap so canonical == indexed URL.
+  const encodedPath = value.split("/").map(encodeURIComponent).join("/");
   return {
     title: `${heading} · ${meta("siteName")}`,
     description: t("bucketMetaDescription", { value }),
+    alternates: localeAlternates(locale, `/developers/${type}/${encodedPath}`),
   };
 }
 

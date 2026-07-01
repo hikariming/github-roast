@@ -4,6 +4,7 @@ import { Link } from "@/i18n/navigation";
 import { getFacetCategoriesCached } from "@/lib/developers";
 import type { FacetType } from "@/lib/facets";
 import type { FacetCategory } from "@/lib/db";
+import { localeAlternates } from "@/lib/site";
 
 // Everything the directory reads is served from Redis (cache-aside + in-process
 // single-flight in lib/developers.ts), so the expensive GROUP BY runs at most
@@ -22,6 +23,7 @@ export async function generateMetadata({
   return {
     title: `${t("metaTitle")} · ${meta("siteName")}`,
     description: t("metaDescription"),
+    alternates: localeAlternates(locale, "/developers"),
   };
 }
 

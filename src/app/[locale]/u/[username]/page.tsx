@@ -15,8 +15,9 @@ import {
 } from "@/lib/db";
 import { aggregateLanguages, collectTopics } from "@/lib/profile-insights";
 import { JsonLd, profileJsonLd } from "@/components/JsonLd";
-import { SITE_URL, PUBLIC_INDEX_MIN_SCORE } from "@/lib/site";
+import { SITE_URL, PUBLIC_INDEX_MIN_SCORE, localeAlternates } from "@/lib/site";
 import { CopyBadge } from "@/components/CopyBadge";
+import { ProfileShare } from "@/components/ProfileShare";
 import { FloatingCommentBubbles } from "@/components/FloatingCommentBubbles";
 import { TierAvatarFrame } from "@/components/TierAvatarFrame";
 import { SUBSCORE_MAX, nextTier } from "@/lib/score";
@@ -84,9 +85,9 @@ export async function generateMetadata({
     title,
     description,
     robots: indexable ? undefined : { index: false, follow: true },
-    alternates: {
-      languages: { "zh-CN": `/u/${d.username}`, en: `/en/u/${d.username}` },
-    },
+    // Canonicalize on the stored slug so casing variants (GitHub handles are
+    // case-insensitive: /u/Torvalds vs /u/torvalds) consolidate to one URL.
+    alternates: localeAlternates(locale, `/u/${d.username}`),
     openGraph: {
       title,
       description,
@@ -188,6 +189,7 @@ export default async function AccountPage({
             profileUrl: d.profile_url,
             score: d.final_score,
             locale,
+            scannedAt: d.scanned_at,
           })}
         />
         <Link href="/leaderboard" className="text-sm text-zinc-400 hover:text-zinc-200">
@@ -323,6 +325,16 @@ export default async function AccountPage({
         />
       </Suspense>
 
+        <ProfileShare
+          username={d.username}
+          name={d.display_name}
+          avatarUrl={d.avatar_url}
+          score={d.final_score}
+          tier={d.tier}
+          tierLabel={tTier(`${tierKey}.blurb`)}
+          beat={beat}
+          tags={d.tags}
+        />
         <CopyBadge baseUrl={SITE_URL} username={d.username} version={d.scanned_at} />
         </aside>
 

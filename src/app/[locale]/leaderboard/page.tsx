@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { Leaderboard } from "@/components/Leaderboard";
 import { JsonLd, leaderboardJsonLd } from "@/components/JsonLd";
+import { localeAlternates } from "@/lib/site";
 import { getLeaderboardCached } from "@/lib/leaderboard";
 import {
   LEADERBOARD_WINDOW_OPTIONS,
@@ -32,6 +33,7 @@ export async function generateMetadata({
   return {
     title: `${t("heading")} · ${(await getTranslations({ locale, namespace: "meta" }))("siteName")}`,
     description: t("subtitle"),
+    alternates: localeAlternates(locale, "/leaderboard"),
   };
 }
 

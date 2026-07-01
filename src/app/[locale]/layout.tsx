@@ -12,7 +12,7 @@ import { Navbar } from "@/components/Navbar";
 import { LoginNudge } from "@/components/LoginNudge";
 import { PoweredByLobeHub } from "@/components/Sponsor";
 import { JsonLd, websiteJsonLd } from "@/components/JsonLd";
-import { SITE_URL } from "@/lib/site";
+import { SITE_URL, localeAlternates } from "@/lib/site";
 import "../globals.css";
 
 const geistSans = Geist({
@@ -63,9 +63,7 @@ export async function generateMetadata({
     metadataBase: new URL(SITE_URL),
     title: t("title"),
     description: t("description"),
-    alternates: {
-      languages: { "zh-CN": "/", en: "/en" },
-    },
+    alternates: localeAlternates(locale, "/"),
     openGraph: {
       title: t("ogTitle"),
       description: t("ogDescription"),

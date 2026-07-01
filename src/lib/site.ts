@@ -19,3 +19,24 @@ export const SITE_URL = (
  * name. Matches the leaderboard's public floor.
  */
 export const PUBLIC_INDEX_MIN_SCORE = 60;
+
+/**
+ * Build the `alternates` block for a page's metadata: a self-referencing
+ * `canonical` plus `hreflang` pairs for both locales and an `x-default`.
+ *
+ * `path` is the locale-agnostic (zh-root) path, e.g. `/leaderboard`, `/u/torvalds`,
+ * or `/` for the home page — no `/en` prefix. zh lives at the root, en under `/en`.
+ * Each locale is self-canonical (zh and en are genuinely different-language pages,
+ * so we do NOT collapse one onto the other); hreflang wires them together and tells
+ * Google which URL to serve per language. Returned URLs are relative — `metadataBase`
+ * in the root layout resolves them to absolute.
+ */
+export function localeAlternates(locale: string, path: string) {
+  const clean = path === "/" ? "" : path.replace(/\/$/, "");
+  const zh = clean || "/";
+  const en = `/en${clean}`;
+  return {
+    canonical: locale === "en" ? en : zh,
+    languages: { "zh-CN": zh, en, "x-default": zh },
+  };
+}

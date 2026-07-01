@@ -75,11 +75,17 @@ export function profileJsonLd(opts: {
   profileUrl: string | null;
   score: number;
   locale: string;
+  /** Epoch ms of the last score — emitted as `dateModified` for crawl freshness. */
+  scannedAt?: number | null;
 }) {
+  const url = `${SITE_URL}${uPath(opts.username, opts.locale)}`;
   return {
     "@context": "https://schema.org",
     "@type": "ProfilePage",
-    url: `${SITE_URL}${uPath(opts.username, opts.locale)}`,
+    url,
+    ...(opts.scannedAt
+      ? { dateModified: new Date(opts.scannedAt).toISOString() }
+      : {}),
     mainEntity: personNode(opts),
   };
 }
