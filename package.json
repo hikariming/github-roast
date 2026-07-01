@@ -10,6 +10,7 @@
     "dev": "next dev",
     "build": "next build",
     "cli:build": "make cli-build",
+    "cli:build-all": "make cli-build-all",
     "cli:test": "make cli-test",
     "start": "next build && next start",
     "start:prod": "next start",
