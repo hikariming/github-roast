@@ -35,6 +35,14 @@ function clientIp(req: NextRequest): string {
   return fwd?.split(",")[0]?.trim() || "0.0.0.0";
 }
 
+function hasMachineAuth(req: NextRequest): boolean {
+  const expected = process.env.GITHUB_ROAST_CLI_API_KEY;
+  if (!expected) return false;
+  const value = req.headers.get("authorization") ?? "";
+  const token = value.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
+  return token === expected;
+}
+
 async function recordSuccessfulLookup(username: string, ip: string): Promise<void> {
   // Record the lookup for heat/trending counts, but intentionally DON'T bust the
   // leaderboard cache here. Under real traffic this "counted" path fires
@@ -61,9 +69,11 @@ export async function POST(req: NextRequest) {
 
   const ip = clientIp(req);
 
-  const human = await verifyTurnstile(body.turnstileToken ?? null, ip);
-  if (!human) {
-    return NextResponse.json({ error: "turnstile_failed" }, { status: 403 });
+  if (!hasMachineAuth(req)) {
+    const human = await verifyTurnstile(body.turnstileToken ?? null, ip);
+    if (!human) {
+      return NextResponse.json({ error: "turnstile_failed" }, { status: 403 });
+    }
   }
 
   // Cache hit short-circuits both GitHub and (later) the LLM. The leaderboard
