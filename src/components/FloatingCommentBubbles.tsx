@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, type FormEvent, useEffect, useState } from "react";
+import { type CSSProperties, type FormEvent, useState } from "react";
 import { Link } from "@/i18n/navigation";
 import {
   COMMENT_MAX_LENGTH,
@@ -8,11 +8,6 @@ import {
   type CreateProfileCommentResponse,
   type ProfileComment,
 } from "@/lib/comments";
-import {
-  DANMAKU_MIN_DISPLAY,
-  interleaveDanmakuByLang,
-  type DanmakuLine,
-} from "@/lib/danmaku";
 
 type FloatingCommentAuthor =
   | { type: "anonymous" }
@@ -46,7 +41,7 @@ interface FloatingCommentLabels {
 }
 
 // Spread positions for the floating wall — bubbles cycle through these so any
-// mix of real comments + AI danmaku stays scattered down both sides.
+// real comments stay scattered down both sides.
 const TOP_SLOTS = [
   "3.5rem",
   "10rem",
@@ -232,12 +227,10 @@ function FloatingCommentInlineAuthor({
 
 export function FloatingCommentBubbles({
   initialComments,
-  initialDanmaku = [],
   lang,
   profileUsername,
 }: {
   initialComments: ProfileComment[];
-  initialDanmaku?: DanmakuLine[];
   lang: FloatingCommentLang;
   profileUsername: string;
 }) {
@@ -246,42 +239,13 @@ export function FloatingCommentBubbles({
   const [draft, setDraft] = useState("");
   const [anonymous, setAnonymous] = useState(false);
   const [comments, setComments] = useState<ProfileComment[]>(initialComments);
-  const [danmaku, setDanmaku] = useState<DanmakuLine[]>(initialDanmaku);
   const [sending, setSending] = useState(false);
   const [showMobileDanmaku, setShowMobileDanmaku] = useState(true);
   const [submitError, setSubmitError] = useState<"auth" | "send" | null>(null);
 
-  // When a profile has few real comments, top up the wall with AI danmaku
-  // (always anonymous). Fetch-and-persist lazily the first time, only if none
-  // were cached server-side and there still aren't enough real comments.
-  const needsDanmaku = comments.length < DANMAKU_MIN_DISPLAY;
-  useEffect(() => {
-    if (!needsDanmaku || danmaku.length > 0) return;
-    let cancelled = false;
-    fetch(`/api/profile-danmaku/${encodeURIComponent(profileUsername)}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: { lines?: DanmakuLine[] } | null) => {
-        if (!cancelled && data?.lines?.length) setDanmaku(data.lines);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [needsDanmaku, danmaku.length, profileUsername]);
-
-  // The danmaku wall is intentionally bilingual for everyone: show both the zh
-  // and en lines (interleaved), so an English visitor never faces an all-Chinese
-  // wall and the page reads like a global crowd reacting.
   const visibleComments = [...comments].reverse();
-  const items: { author: FloatingCommentAuthor; text: string }[] = [
-    ...visibleComments.map((c) => ({ author: c.author, text: c.text })),
-    ...(needsDanmaku
-      ? interleaveDanmakuByLang(danmaku).map((d) => ({
-          author: { type: "anonymous" } as FloatingCommentAuthor,
-          text: d.text,
-        }))
-      : []),
-  ];
+  const items: { author: FloatingCommentAuthor; text: string }[] =
+    visibleComments.map((c) => ({ author: c.author, text: c.text }));
   const bubbles = items.map((item, index) => layoutBubble(item.author, item.text, index));
   const mobileDanmakuBubbles = bubbles;
   const trimmedDraft = normalizeCommentText(draft);

@@ -8,7 +8,6 @@
  */
 
 import { TIER_EN, TIER_LABEL_EN } from "./badge";
-import { DANMAKU_PER_LANG, type DanmakuContext } from "./danmaku";
 import type { Lang } from "./lang";
 import type { RoastJudgeResult, ScanResult } from "./types";
 
@@ -423,51 +422,6 @@ export function buildRoastJudgeMessages(scan: ScanResult, lang: Lang = "zh") {
     {
       role: "user" as const,
       content: preamble + JSON.stringify(payload, null, 2) + "\n```",
-    },
-  ];
-}
-
-const DANMAKU_SYSTEM_PROMPT = `你在为一个 GitHub 开发者「含金量评分」页面生成弹幕（bullet-screen comments）——就像一群围观的匿名网友刷过这位开发者的成绩单时的即时反应。弹幕墙会**中英文混着飘**，所以两种语言都要写。
-
-要求：
-- 生成 ${DANMAKU_PER_LANG} 条中文 + ${DANMAKU_PER_LANG} 条英文，**各自独立**（不是互相翻译，内容、吐槽点都可以不同）。
-- 每条都短（中文 ≤18 字；英文 ≤12 词）。
-- 必须**贴合给到的真实数据**（分数、等级、标签、代表作/贡献的明星项目、技术栈、bio），别空泛。
-- **要有网感**：
-  - 中文像 B站/即刻/V2EX 网友：玩梗、轻松调侃、内行向的会心一笑，口语化，别像新闻稿。
-  - 英文像 Hacker News / Reddit / 程序员 Twitter 的口吻：地道、随性、带点 dev humor，**绝不要翻译腔**。
-- 语气以**幽默风趣、善意**为主：分高就真心夸再加点俏皮打趣；分低也别毒舌、别嘲讽，最多温和地调侃产出本身，让人看了会心一笑而不是被冒犯。**绝不**人身攻击或贬低本人。
-- **绝不**编造或 @ 任何真实人名/用户名；**不要**带 @、# 符号；不要自称 AI 或机器人。
-- 只输出一个 JSON 数组，每个元素形如 {"lang":"zh","text":"…"} 或 {"lang":"en","text":"…"}，不要任何额外文字、解释或代码块标记。`;
-
-/** Messages that ask the model for a batch of fun, data-grounded danmaku.
- * Output is a strict JSON array of {zh,en}; see {@link normalizeDanmakuLines}. */
-export function buildDanmakuMessages(ctx: DanmakuContext) {
-  const payload = {
-    username: ctx.username,
-    display_name: ctx.displayName,
-    final_score: ctx.finalScore,
-    tier: ctx.tier,
-    tier_label: ctx.tierLabel,
-    tags: ctx.tags.slice(0, 8),
-    notable_contributions: ctx.impactRepos
-      .slice(0, 6)
-      .map((r) => `${r.repo} (★${r.stars})`),
-    featured_repos: ctx.topRepos
-      .slice(0, 6)
-      .map((r) => `${r.name} (★${r.stars}${r.language ? ", " + r.language : ""})`),
-    languages: ctx.languages.slice(0, 6),
-    topics: ctx.topics.slice(0, 12),
-    bio: ctx.bio,
-  };
-  return [
-    { role: "system" as const, content: DANMAKU_SYSTEM_PROMPT },
-    {
-      role: "user" as const,
-      content:
-        "这是该开发者的真实数据（JSON）。据此生成弹幕，只返回 JSON 数组：\n\n```json\n" +
-        JSON.stringify(payload, null, 2) +
-        "\n```",
     },
   ];
 }

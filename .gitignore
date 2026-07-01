@@ -51,3 +51,7 @@ yarn-error.log*
 next-env.d.ts
 
 .env
+# Local ops-script run artifacts / caches (not source)
+scripts/_*.log
+scripts/_*.jsonl
+scripts/_org-members.json
